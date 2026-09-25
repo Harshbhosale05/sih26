@@ -1,0 +1,24 @@
+.env
+
+# Local Claude Code settings: machine-specific, not shared
+.claude/settings.local.json
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+node_modules/
+dist/
+.vite/
+
+# Generated captures and analysis artefacts
+testbed/output/
+sample_pcaps/*.pcap
+sample_pcaps/*.pcapng
+sample_pcaps/*.gz
+!sample_pcaps/.gitkeep
+data/
+
+.DS_Store
+.idea/
+.vscode/

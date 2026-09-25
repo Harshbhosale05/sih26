@@ -1,0 +1,295 @@
+{
+  "_comment": [
+    "Cryptographic policy. Every severity and threshold in the product comes",
+    "from this file, not from code. A judge or an administrator can change a",
+    "severity here and re-run analysis -- which is the point: the posture score",
+    "is our methodology, stated openly, not a magic number."
+  ],
+  "version": "1.0",
+  "rules": {
+    "cleartext_credential_exposure": {
+      "severity": "CRITICAL",
+      "confidence": 1.0,
+      "title": "Authentication credentials transmitted without TLS",
+      "recommendation": "Require TLS before accepting AUTH. Postfix: smtpd_tls_auth_only = yes. Dovecot: disable_plaintext_auth = yes. Treat every account seen here as compromised and force a credential reset.",
+      "standards": [
+        "RFC 8314 \u00a73",
+        "RFC 4954 \u00a74",
+        "NIST SP 800-177r1 \u00a74.5"
+      ]
+    },
+    "starttls_stripping": {
+      "severity": "CRITICAL",
+      "confidence": 0.9,
+      "title": "STARTTLS capability stripping (on-path downgrade)",
+      "recommendation": "Deploy MTA-STS (RFC 8461) in enforce mode and DANE/TLSA (RFC 7672) so clients refuse to fall back to cleartext. Investigate the network path between these hosts.",
+      "standards": [
+        "RFC 3207 \u00a76",
+        "RFC 8461",
+        "RFC 7672"
+      ],
+      "min_sessions_for_baseline": 3,
+      "min_advertise_ratio": 0.5
+    },
+    "starttls_downgrade_fallback": {
+      "severity": "CRITICAL",
+      "confidence": 1.0,
+      "title": "STARTTLS refused and session continued in cleartext",
+      "recommendation": "Configure the client to treat STARTTLS failure as fatal rather than falling back. Fix the server's TLS configuration so upgrades succeed.",
+      "standards": [
+        "RFC 3207 \u00a74",
+        "RFC 8314 \u00a73"
+      ]
+    },
+    "starttls_not_advertised": {
+      "severity": "HIGH",
+      "confidence": 1.0,
+      "title": "Server did not offer STARTTLS on a cleartext port",
+      "recommendation": "Enable STARTTLS on this service, or move clients to implicit TLS (465/993/995) per RFC 8314.",
+      "standards": [
+        "RFC 3207",
+        "RFC 8314"
+      ]
+    },
+    "starttls_advertised_not_used": {
+      "severity": "MEDIUM",
+      "confidence": 1.0,
+      "title": "STARTTLS offered but not used by the client",
+      "recommendation": "Enforce TLS server-side so cleartext sessions are rejected rather than permitted. Postfix: smtpd_tls_security_level = encrypt on submission.",
+      "standards": [
+        "RFC 8314 \u00a73.3"
+      ]
+    },
+    "cleartext_mail_transaction": {
+      "severity": "HIGH",
+      "confidence": 1.0,
+      "title": "Message content or mailbox data traversed the network in cleartext",
+      "recommendation": "Enforce TLS for this service. Any message visible in this capture should be considered disclosed.",
+      "standards": [
+        "RFC 8314",
+        "NIST SP 800-177r1"
+      ]
+    },
+    "incomplete_evidence": {
+      "severity": "INFO",
+      "confidence": 1.0,
+      "title": "Session evidence incomplete \u2014 posture cannot be determined",
+      "recommendation": "Re-capture with a full snaplen and for the complete session lifetime to allow assessment.",
+      "standards": []
+    },
+    "deprecated_tls_version": {
+      "severity": "HIGH",
+      "confidence": 1.0,
+      "title": "Deprecated TLS protocol version negotiated",
+      "recommendation": "Disable TLS 1.0/1.1 and require TLS 1.2 minimum. Postfix: smtpd_tls_mandatory_protocols = >=TLSv1.2. Dovecot: ssl_min_protocol = TLSv1.2. Verify with: openssl s_client -starttls smtp -tls1 -connect <host>:<port> (must fail).",
+      "standards": [
+        "RFC 8996",
+        "NIST SP 800-52r2 \u00a73.1",
+        "RFC 7568"
+      ]
+    },
+    "weak_cipher_suite": {
+      "severity": "MEDIUM",
+      "confidence": 1.0,
+      "title": "Weak or legacy cipher suite negotiated",
+      "recommendation": "Restrict to AEAD suites. Postfix: tls_high_cipherlist = ECDHE+AESGCM:ECDHE+CHACHA20 with smtpd_tls_mandatory_ciphers = high.",
+      "standards": [
+        "NIST SP 800-52r2 \u00a73.3",
+        "RFC 7465",
+        "Mozilla Server Side TLS"
+      ]
+    },
+    "no_forward_secrecy": {
+      "severity": "HIGH",
+      "confidence": 1.0,
+      "title": "Key exchange provides no forward secrecy",
+      "recommendation": "Disable static RSA key exchange and require ECDHE or DHE. Any traffic already recorded on this path should be treated as retrospectively decryptable.",
+      "standards": [
+        "NIST SP 800-52r2 \u00a73.3.1",
+        "RFC 8446 \u00a71.2"
+      ]
+    },
+    "certificate_not_observable": {
+      "severity": "INFO",
+      "confidence": 1.0,
+      "title": "Certificate not observable \u2014 certificate posture undetermined",
+      "recommendation": "Certificate analysis needs the Certificate message to be present in the capture. Under TLS 1.3 it is encrypted by design (RFC 8446 \u00a74.4.2) and requires an SSLKEYLOGFILE; otherwise the handshake in this capture simply did not carry one. Check the specific reason stated above for this session.",
+      "standards": [
+        "RFC 8446 \u00a74.4.2"
+      ]
+    },
+    "protocol_port_mismatch": {
+      "severity": "LOW",
+      "confidence": 0.9,
+      "title": "Email service running on a non-standard port",
+      "recommendation": "Run mail services on their registered ports so security controls and monitoring apply consistently.",
+      "standards": [
+        "RFC 8314 \u00a73"
+      ]
+    },
+    "mta_sts_policy_violation": {
+      "severity": "CRITICAL",
+      "confidence": 1.0,
+      "title": "MTA-STS policy published and fetched, then violated",
+      "recommendation": "Investigate why TLS was not used despite an enforce-mode policy. If the sending MTA is under your control, ensure it honours MTA-STS. If it is not, this pattern is consistent with on-path STARTTLS stripping \u2014 correlate with the capability behaviour on the Servers view.",
+      "standards": [
+        "RFC 8461",
+        "RFC 8460"
+      ]
+    },
+    "mta_sts_not_published": {
+      "severity": "MEDIUM",
+      "confidence": 1.0,
+      "title": "No MTA-STS policy published for this domain",
+      "recommendation": "Publish an MTA-STS policy: a _mta-sts TXT record (v=STSv1; id=...) plus a policy file at https://mta-sts.<domain>/.well-known/mta-sts.txt. Start with mode=testing, then move to mode=enforce once TLS-RPT shows clean delivery.",
+      "standards": [
+        "RFC 8461",
+        "NIST SP 800-177r1"
+      ]
+    },
+    "dane_not_deployed": {
+      "severity": "LOW",
+      "confidence": 1.0,
+      "title": "DANE/TLSA not deployed for this domain's mail servers",
+      "recommendation": "If the zone is DNSSEC-signed, publish TLSA records for _25._tcp.<mx>. DANE gives senders a cryptographic reason to refuse a downgrade and complements MTA-STS.",
+      "standards": [
+        "RFC 7672",
+        "RFC 6698"
+      ]
+    },
+    "tlsrpt_not_configured": {
+      "severity": "LOW",
+      "confidence": 1.0,
+      "title": "No TLS-RPT reporting address configured",
+      "recommendation": "Publish a _smtp._tls TXT record (v=TLSRPTv1; rua=mailto:...) so senders report TLS failures to you. Without it, downgrade problems go unnoticed.",
+      "standards": [
+        "RFC 8460"
+      ]
+    },
+    "dmarc_not_published": {
+      "severity": "MEDIUM",
+      "confidence": 1.0,
+      "title": "No DMARC policy published",
+      "recommendation": "Publish a _dmarc TXT record. Begin with p=none plus rua reporting, then progress to quarantine and reject once legitimate sources are aligned.",
+      "standards": [
+        "RFC 7489",
+        "NIST SP 800-177r1"
+      ]
+    },
+    "dmarc_policy_none": {
+      "severity": "LOW",
+      "confidence": 1.0,
+      "title": "DMARC published in monitor-only mode (p=none)",
+      "recommendation": "Move to p=quarantine and then p=reject once aggregate reports show legitimate mail is aligned. p=none provides no protection against spoofing.",
+      "standards": [
+        "RFC 7489"
+      ]
+    },
+    "dns_correlation_incomplete": {
+      "severity": "INFO",
+      "confidence": 1.0,
+      "title": "DNS evidence incomplete \u2014 policy compliance undetermined",
+      "recommendation": "Capture DNS alongside mail traffic so policy compliance can be assessed.",
+      "standards": []
+    },
+    "pqc_server_not_ready": {
+      "severity": "LOW",
+      "confidence": 1.0,
+      "title": "Clients offer hybrid post-quantum key exchange; servers do not select it",
+      "recommendation": "Enable a hybrid PQC key exchange group (X25519MLKEM768) on the mail servers. Requires OpenSSL 3.5+ or equivalent. Prioritise by CNSA 2.0 timelines; until then, ensure forward secrecy everywhere so recorded traffic is not retrospectively readable.",
+      "standards": [
+        "FIPS 203 (ML-KEM)",
+        "CNSA 2.0",
+        "RFC 8446"
+      ]
+    },
+    "certificate_expired": {
+      "severity": "CRITICAL",
+      "confidence": 1.0,
+      "title": "Certificate had already expired at capture time",
+      "recommendation": "Renew the certificate and automate renewal (ACME/certbot with a post-renewal reload). Expiry is the most common avoidable mail outage.",
+      "standards": [
+        "CA/Browser Forum Baseline Requirements",
+        "RFC 5280 \u00a74.1.2.5"
+      ]
+    },
+    "certificate_not_yet_valid": {
+      "severity": "HIGH",
+      "confidence": 1.0,
+      "title": "Certificate not yet valid at capture time",
+      "recommendation": "Check server clock synchronisation (NTP) and the certificate's notBefore. Clients will reject this certificate until the validity window opens.",
+      "standards": [
+        "RFC 5280 \u00a74.1.2.5"
+      ]
+    },
+    "certificate_expiring_soon": {
+      "severity": "MEDIUM",
+      "confidence": 1.0,
+      "title": "Certificate close to expiry",
+      "recommendation": "Renew now and put expiry monitoring in place. Automate renewal so this never becomes an outage.",
+      "standards": [
+        "CA/Browser Forum Baseline Requirements"
+      ]
+    },
+    "certificate_hostname_mismatch": {
+      "severity": "HIGH",
+      "confidence": 1.0,
+      "title": "Certificate does not cover the requested hostname",
+      "recommendation": "Reissue with the correct SAN entries. Strict clients will refuse the connection; lenient ones connect anyway, which is what makes this exploitable.",
+      "standards": [
+        "RFC 6125",
+        "RFC 5280 \u00a74.2.1.6"
+      ]
+    },
+    "certificate_weak_key": {
+      "severity": "HIGH",
+      "confidence": 1.0,
+      "title": "Certificate public key below minimum strength",
+      "recommendation": "Reissue with RSA 2048-bit minimum (3072 preferred) or ECDSA P-256. Keys below this are factorable with attainable resources.",
+      "standards": [
+        "NIST SP 800-57 Part 1 Rev 5",
+        "NIST SP 800-52r2 \u00a73.3"
+      ]
+    },
+    "certificate_weak_signature": {
+      "severity": "HIGH",
+      "confidence": 1.0,
+      "title": "Certificate signed with a broken hash algorithm",
+      "recommendation": "Reissue with SHA-256 or stronger. SHA-1 certificate collisions are demonstrated, so the signature no longer binds the identity.",
+      "standards": [
+        "RFC 5280",
+        "CA/Browser Forum Baseline Requirements",
+        "NIST SP 800-131A Rev 2"
+      ]
+    },
+    "certificate_self_signed": {
+      "severity": "MEDIUM",
+      "confidence": 1.0,
+      "title": "Self-signed certificate presented",
+      "recommendation": "Issue from an internal CA whose root is distributed to clients, or from a public CA. Self-signed certificates train users and administrators to ignore warnings.",
+      "standards": [
+        "RFC 5280",
+        "NIST SP 800-177r1"
+      ]
+    },
+    "certificate_chain_incomplete": {
+      "severity": "MEDIUM",
+      "confidence": 1.0,
+      "title": "Incomplete certificate chain presented",
+      "recommendation": "Configure the server to send the full chain including intermediates. Postfix: smtpd_tls_chain_files. Clients lacking the intermediate will fail validation.",
+      "standards": [
+        "RFC 5246 \u00a77.4.2",
+        "RFC 8446 \u00a74.4.2"
+      ]
+    }
+  },
+  "posture_weights": {
+    "_comment": "Dimension weights for the SecureMailScope Posture Score. Editable: the score is our stated methodology, not a fixed rating.",
+    "transport": 0.3,
+    "tls_version": 0.2,
+    "crypto": 0.2,
+    "pfs": 0.15,
+    "certificate": 0.1,
+    "behaviour": 0.05
+  }
+}

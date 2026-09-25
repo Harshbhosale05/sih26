@@ -1,0 +1,53 @@
+name: securemailscope
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-smscope}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-smscope}
+      POSTGRES_DB: ${POSTGRES_DB:-securemailscope}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-smscope} -d ${POSTGRES_DB:-securemailscope}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: ./backend
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-smscope}:${POSTGRES_PASSWORD:-smscope}@db:5432/${POSTGRES_DB:-securemailscope}
+      DATA_DIR: /data
+      MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES:-2147483648}
+      TOOL_TIMEOUT_SECONDS: ${TOOL_TIMEOUT_SECONDS:-300}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
+    volumes:
+      - ./backend/app:/app/app:ro
+      - capture-data:/data
+    ports:
+      - "${API_PORT:-8000}:8000"
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+  # Tier-2 testbed: real SMTP servers, real TLS handshakes, captured on
+  # loopback. Server, client and tcpdump share one network namespace, which
+  # removes multi-container networking from the problem entirely.
+  #   docker compose --profile testbed run --rm testbed
+  testbed:
+    profiles: ["testbed"]
+    build: ./testbed/servers
+    cap_add:
+      - NET_RAW
+      - NET_ADMIN
+    volumes:
+      - ./testbed/output:/out
+
+volumes:
+  pgdata:
+  capture-data:

@@ -1,0 +1,113 @@
+{
+  "valid": {
+    "files": [
+      "valid-0.der",
+      "valid-1.der"
+    ],
+    "chain_length": 2,
+    "subject_cn": "mail01.corp.local",
+    "issuer_cn": "Corp Internal Root CA",
+    "not_before": "2026-01-01T09:15:00+00:00",
+    "not_after": "2027-01-01T09:15:00+00:00",
+    "key_bits": 3072,
+    "signature_algorithm": "sha256WithRSAEncryption",
+    "note": "Healthy baseline. No certificate finding should fire on this."
+  },
+  "expired": {
+    "files": [
+      "expired-0.der",
+      "expired-1.der"
+    ],
+    "chain_length": 2,
+    "subject_cn": "mail01.corp.local",
+    "issuer_cn": "Corp Internal Root CA",
+    "not_before": "2025-01-26T09:15:00+00:00",
+    "not_after": "2026-02-01T09:15:00+00:00",
+    "key_bits": 3072,
+    "signature_algorithm": "sha256WithRSAEncryption",
+    "note": "notAfter precedes capture time by 29 days."
+  },
+  "expiring_soon": {
+    "files": [
+      "expiring_soon-0.der",
+      "expiring_soon-1.der"
+    ],
+    "chain_length": 2,
+    "subject_cn": "mail01.corp.local",
+    "issuer_cn": "Corp Internal Root CA",
+    "not_before": "2025-03-07T09:15:00+00:00",
+    "not_after": "2026-03-05T09:15:00+00:00",
+    "key_bits": 3072,
+    "signature_algorithm": "sha256WithRSAEncryption",
+    "note": "Valid at capture time, expires in 3 days."
+  },
+  "not_yet_valid": {
+    "files": [
+      "not_yet_valid-0.der",
+      "not_yet_valid-1.der"
+    ],
+    "chain_length": 2,
+    "subject_cn": "mail01.corp.local",
+    "issuer_cn": "Corp Internal Root CA",
+    "not_before": "2026-04-01T09:15:00+00:00",
+    "not_after": "2027-04-01T09:15:00+00:00",
+    "key_bits": 3072,
+    "signature_algorithm": "sha256WithRSAEncryption",
+    "note": "notBefore is 30 days after capture time."
+  },
+  "wrong_host": {
+    "files": [
+      "wrong_host-0.der",
+      "wrong_host-1.der"
+    ],
+    "chain_length": 2,
+    "subject_cn": "webmail.othercorp.example",
+    "issuer_cn": "Corp Internal Root CA",
+    "not_before": "2026-01-01T09:15:00+00:00",
+    "not_after": "2027-01-01T09:15:00+00:00",
+    "key_bits": 3072,
+    "signature_algorithm": "sha256WithRSAEncryption",
+    "note": "Subject and SAN do not cover mail01.corp.local."
+  },
+  "weak_key": {
+    "files": [
+      "weak_key-0.der",
+      "weak_key-1.der"
+    ],
+    "chain_length": 2,
+    "subject_cn": "mail01.corp.local",
+    "issuer_cn": "Corp Internal Root CA",
+    "not_before": "2026-01-01T09:15:00+00:00",
+    "not_after": "2027-01-01T09:15:00+00:00",
+    "key_bits": 1024,
+    "signature_algorithm": "sha256WithRSAEncryption",
+    "note": "1024-bit RSA public key."
+  },
+  "sha1_signed": {
+    "files": [
+      "sha1_signed-0.der",
+      "sha1_signed-1.der"
+    ],
+    "chain_length": 2,
+    "subject_cn": "mail01.corp.local",
+    "issuer_cn": "Corp Internal Root CA",
+    "not_before": "2026-01-01T09:15:00+00:00",
+    "not_after": "2027-01-01T09:15:00+00:00",
+    "key_bits": 3072,
+    "signature_algorithm": "sha1WithRSAEncryption",
+    "note": "Certificate declares a SHA-1 signature algorithm."
+  },
+  "self_signed": {
+    "files": [
+      "self_signed-0.der"
+    ],
+    "chain_length": 1,
+    "subject_cn": "mail01.corp.local",
+    "issuer_cn": "mail01.corp.local",
+    "not_before": "2026-01-01T09:15:00+00:00",
+    "not_after": "2027-01-01T09:15:00+00:00",
+    "key_bits": 2048,
+    "signature_algorithm": "sha256WithRSAEncryption",
+    "note": "Self-signed, no issuer chain presented."
+  }
+}

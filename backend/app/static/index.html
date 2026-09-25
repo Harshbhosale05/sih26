@@ -1,0 +1,1042 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SecureMailScope</title>
+<style>
+:root {
+  color-scheme: light;
+  --surface: #fcfcfb;
+  --plane: #f4f4f1;
+  --rail: #ffffff;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --ink-3: #898781;
+  --rule: #e1e0d9;
+  --rule-strong: #c3c2b7;
+  --hair: rgba(11,11,11,0.08);
+
+  --good: #0ca30c;
+  --warning: #fab219;
+  --serious: #ec835a;
+  --critical: #d03b3b;
+
+  --accent: #2a78d6;
+  --accent-soft: rgba(42,120,214,0.10);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --surface: #1a1a19;
+    --plane: #0d0d0d;
+    --rail: #151514;
+    --ink: #ffffff;
+    --ink-2: #c3c2b7;
+    --ink-3: #898781;
+    --rule: #2c2c2a;
+    --rule-strong: #383835;
+    --hair: rgba(255,255,255,0.09);
+    --accent: #3987e5;
+    --accent-soft: rgba(57,135,229,0.14);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface: #1a1a19; --plane: #0d0d0d; --rail: #151514;
+  --ink: #ffffff; --ink-2: #c3c2b7; --ink-3: #898781;
+  --rule: #2c2c2a; --rule-strong: #383835; --hair: rgba(255,255,255,0.09);
+  --accent: #3987e5; --accent-soft: rgba(57,135,229,0.14);
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0; background: var(--plane); color: var(--ink);
+  font: 13.5px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+h1,h2,h3,h4 { margin: 0; font-weight: 600; }
+.mono { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace; }
+.num { font-variant-numeric: tabular-nums; }
+
+/* micro-label: the small-caps rubric used throughout */
+.rubric {
+  font-size: 10px; font-weight: 650; letter-spacing: 0.09em;
+  text-transform: uppercase; color: var(--ink-3);
+}
+
+/* ---------- App shell ---------- */
+.shell { display: grid; grid-template-columns: 236px 1fr; min-height: 100vh; }
+
+.rail {
+  background: var(--rail); border-right: 1px solid var(--rule);
+  display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh;
+}
+.brand { padding: 18px 18px 14px; border-bottom: 1px solid var(--rule); }
+.brand .mark {
+  display: flex; align-items: center; gap: 9px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px; letter-spacing: -0.02em; font-weight: 600;
+}
+.brand .mark b { font-weight: 600; }
+.brand .mark i {
+  width: 14px; height: 14px; border-radius: 3px; flex: none;
+  background: var(--accent); font-style: normal;
+  box-shadow: inset 0 0 0 3px var(--rail);
+}
+.brand .ps { margin-top: 6px; font-size: 10.5px; color: var(--ink-3); letter-spacing: .02em; }
+
+.railsec { padding: 14px 12px; border-bottom: 1px solid var(--rule); }
+.railsec > .rubric { padding: 0 6px 7px; display: block; }
+
+nav { padding: 8px; flex: 1; overflow-y: auto; }
+nav a {
+  display: flex; align-items: center; gap: 9px; padding: 7px 10px;
+  border-radius: 6px; color: var(--ink-2); text-decoration: none;
+  font-weight: 500; cursor: pointer; margin-bottom: 1px;
+}
+nav a:hover { background: var(--accent-soft); color: var(--ink); }
+nav a.on { background: var(--accent-soft); color: var(--ink); font-weight: 600; }
+nav a .n {
+  margin-left: auto; font-size: 11px; color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+nav a.on .n { color: var(--accent); }
+nav .glyph { width: 15px; text-align: center; opacity: .75; font-size: 12px; }
+
+.railfoot { padding: 12px 14px; border-top: 1px solid var(--rule); font-size: 11px; color: var(--ink-3); }
+
+/* ---------- Main ---------- */
+main { min-width: 0; }
+.topbar {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  padding: 13px 24px; background: var(--surface);
+  border-bottom: 1px solid var(--rule); position: sticky; top: 0; z-index: 20;
+}
+.topbar .title { font-size: 15px; font-weight: 600; }
+.topbar .fill { flex: 1; }
+.hashline { font-size: 10.5px; color: var(--ink-3); letter-spacing: .01em; }
+
+.view { padding: 24px; max-width: 1360px; }
+.view.hide { display: none; }
+
+select, button {
+  font: inherit; font-size: 12.5px; padding: 6px 10px; border-radius: 6px;
+  border: 1px solid var(--rule-strong); background: var(--surface);
+  color: var(--ink); cursor: pointer;
+}
+button:hover, select:hover { border-color: var(--ink-3); }
+button.solid { background: var(--accent); border-color: transparent; color: #fff; font-weight: 550; }
+button.ghost { border-color: var(--hair); }
+button:disabled { opacity: .55; cursor: default; }
+
+.panel { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; }
+.panel > header {
+  padding: 12px 16px; border-bottom: 1px solid var(--rule);
+  display: flex; align-items: center; gap: 12px;
+}
+.panel > header .rubric { flex: 1; }
+.panel .pad { padding: 16px; }
+
+.row { display: grid; gap: 14px; margin-bottom: 14px; }
+.r-2 { grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); }
+.r-4 { grid-template-columns: repeat(auto-fit, minmax(168px, 1fr)); }
+
+/* ---------- Posture hero ---------- */
+.hero { display: grid; grid-template-columns: 210px 1fr; gap: 0; }
+.hero .gauge {
+  padding: 22px 18px; border-right: 1px solid var(--rule);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+.gauge svg { display: block; }
+.gauge .score { font-size: 42px; font-weight: 600; line-height: 1; letter-spacing: -0.03em; }
+.gauge .of { font-size: 11px; color: var(--ink-3); margin-top: 2px; }
+.gauge .cap { margin-top: 12px; text-align: center; font-size: 10.5px; color: var(--ink-3); line-height: 1.45; }
+
+.dims { padding: 14px 18px; }
+.dim { display: grid; grid-template-columns: 1fr 96px 46px; gap: 12px;
+       align-items: center; padding: 8px 0; border-bottom: 1px dashed var(--rule); }
+.dim:last-child { border-bottom: 0; }
+.dim .nm { font-weight: 550; font-size: 12.5px; }
+.dim .std { font-size: 10.5px; color: var(--ink-3); }
+.dim .track { height: 6px; border-radius: 3px; background: var(--rule); overflow: hidden; }
+.dim .fill2 { height: 100%; border-radius: 3px; }
+.dim .val { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; font-size: 13px; }
+/* A dimension we could not assess is drawn as absent, not as zero. */
+.dim.na .track { background: repeating-linear-gradient(
+    135deg, var(--rule) 0 5px, transparent 5px 10px); }
+.dim.na .val { color: var(--ink-3); font-size: 9.5px; font-weight: 650; letter-spacing: .06em; }
+.dim .why { grid-column: 1 / -1; font-size: 11px; color: var(--ink-2); padding-left: 2px; }
+.dim .why.cap { color: var(--serious); }
+
+/* ---------- Stat ---------- */
+.stat { padding: 13px 15px; }
+.stat .v { font-size: 27px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; margin-top: 3px; }
+.stat .s { font-size: 11px; color: var(--ink-2); margin-top: 3px; }
+
+/* Every number on this page states how it was derived. A reading with no
+   explanation is an assertion, and this product does not make assertions. */
+.exp { font-size: 10.5px; line-height: 1.5; color: var(--ink-3); margin-top: 6px;
+       padding-top: 6px; border-top: 1px dotted var(--rule); }
+.exp b { color: var(--ink-2); font-weight: 600; }
+.exp.tight { margin-top: 4px; padding-top: 0; border-top: 0; }
+
+/* ---------- Severity ---------- */
+.sev { display: inline-flex; align-items: center; gap: 5px; font-weight: 650;
+       font-size: 10px; letter-spacing: .06em; white-space: nowrap; }
+.sev::before { content: ""; width: 7px; height: 7px; border-radius: 1.5px; background: currentColor; }
+.s-CRITICAL { color: var(--critical); } .s-HIGH { color: var(--serious); }
+.s-MEDIUM { color: var(--warning); } .s-LOW { color: var(--accent); }
+.s-INFO { color: var(--ink-3); }
+
+.tag { font-size: 9.5px; font-weight: 650; letter-spacing: .05em; padding: 2px 5px;
+       border-radius: 3px; border: 1px solid var(--hair); color: var(--ink-3); }
+.tag.unk { color: var(--warning); border-color: currentColor; }
+.tag.ml { color: var(--accent); border-color: currentColor; }
+
+/* ---------- Bars ---------- */
+.stack { display: flex; gap: 2px; height: 22px; border-radius: 4px; overflow: hidden; background: var(--rule); }
+.stack > span { display: block; }
+.keys { display: flex; flex-wrap: wrap; gap: 10px 16px; margin-top: 11px; font-size: 11.5px; color: var(--ink-2); }
+.keys i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; margin-right: 6px; }
+
+/* ---------- Tables ---------- */
+table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+th { text-align: left; font-size: 9.5px; letter-spacing: .08em; text-transform: uppercase;
+     color: var(--ink-3); font-weight: 650; padding: 8px 10px;
+     border-bottom: 1px solid var(--rule-strong); white-space: nowrap;
+     position: sticky; top: 0; background: var(--surface); }
+td { padding: 7px 10px; border-bottom: 1px solid var(--rule); font-variant-numeric: tabular-nums; }
+tbody tr.clk { cursor: pointer; }
+tbody tr.clk:hover { background: var(--accent-soft); }
+tbody tr.flag td { box-shadow: inset 2px 0 0 var(--critical); }
+.scroll { overflow-x: auto; }
+
+/* ---------- Findings ---------- */
+.fnd { border-bottom: 1px solid var(--rule); }
+.fnd:last-child { border-bottom: 0; }
+.fnd > summary { padding: 11px 16px; cursor: pointer; display: flex; align-items: center;
+                 gap: 11px; flex-wrap: wrap; list-style: none; }
+.fnd > summary::-webkit-details-marker { display: none; }
+.fnd > summary:hover { background: var(--accent-soft); }
+.fnd .id { font-size: 11px; color: var(--ink-3); width: 46px; flex: none; }
+.fnd .hd { font-weight: 550; flex: 1; min-width: 210px; }
+.fnd[open] > summary { background: var(--accent-soft); }
+.fnd .det { padding: 4px 16px 18px 62px; }
+.fnd .det h5 { margin: 15px 0 4px; font-size: 9.5px; letter-spacing: .09em;
+               text-transform: uppercase; color: var(--ink-3); font-weight: 650; }
+.fnd .det p { margin: 0; color: var(--ink-2); max-width: 74ch; }
+
+/* The evidence chain: the signature element. */
+.chain { display: flex; align-items: stretch; flex-wrap: wrap; gap: 0;
+         border: 1px solid var(--rule); border-radius: 8px; overflow: hidden; margin-top: 7px; }
+.chain > div { padding: 8px 13px; border-right: 1px solid var(--rule); min-width: 0; }
+.chain > div:last-child { border-right: 0; flex: 1; }
+.chain .k { font-size: 9px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); font-weight: 650; }
+.chain .v { font-size: 12px; margin-top: 2px; word-break: break-all; }
+
+.cmd { display: flex; align-items: center; gap: 9px; margin-top: 7px;
+       background: var(--plane); border: 1px solid var(--rule); border-radius: 7px; padding: 8px 10px; }
+.cmd code { flex: 1; font-size: 11.5px; word-break: break-all; }
+
+/* ---------- Timeline ---------- */
+.tl { list-style: none; padding: 0; margin: 0; }
+.tl li { position: relative; padding: 0 0 15px 24px; border-left: 1.5px solid var(--rule); }
+.tl li:last-child { border-left-color: transparent; padding-bottom: 0; }
+.tl li::before { content: ""; position: absolute; left: -5.5px; top: 4px; width: 9px; height: 9px;
+                 border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 2.5px var(--surface); }
+.tl .st { font-weight: 600; font-size: 12.5px; }
+.tl .mt { color: var(--ink-3); font-size: 11px; }
+
+/* ---------- Misc ---------- */
+.kv { display: grid; grid-template-columns: max-content 1fr; gap: 5px 18px; font-size: 12.5px; }
+.kv dt { color: var(--ink-3); }
+.kv dd { margin: 0; font-variant-numeric: tabular-nums; }
+.note { font-size: 11.5px; color: var(--ink-2); line-height: 1.5; }
+.callout { border-left: 2.5px solid var(--warning); padding: 9px 13px; background: var(--plane);
+           border-radius: 0 7px 7px 0; font-size: 11.5px; color: var(--ink-2); }
+.callout.ok { border-left-color: var(--accent); }
+.bars { display: grid; gap: 7px; }
+.brow { display: grid; grid-template-columns: 1fr 110px 74px; gap: 11px; align-items: center; font-size: 12px; }
+.brow .track { height: 5px; background: var(--rule); border-radius: 3px; overflow: hidden; }
+.brow .track > span { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
+.brow .n { text-align: right; color: var(--ink-2); font-variant-numeric: tabular-nums; font-size: 11.5px; }
+.muted { color: var(--ink-3); }
+.right { text-align: right; }
+.empty { padding: 40px 16px; text-align: center; color: var(--ink-3); font-size: 13px; }
+
+dialog { border: 1px solid var(--rule-strong); border-radius: 12px; padding: 0; max-width: 860px;
+         width: 93vw; background: var(--surface); color: var(--ink); }
+dialog::backdrop { background: rgba(0,0,0,.55); }
+.dh { display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--rule); }
+.db { padding: 18px; max-height: 72vh; overflow-y: auto; }
+
+@media (max-width: 880px) {
+  .shell { grid-template-columns: 1fr; }
+  .rail { position: static; height: auto; }
+  nav { display: flex; overflow-x: auto; }
+  .hero { grid-template-columns: 1fr; }
+  .hero .gauge { border-right: 0; border-bottom: 1px solid var(--rule); }
+}
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <aside class="rail">
+    <div class="brand">
+      <div class="mark"><i></i><b>securemailscope</b></div>
+      <div class="ps">SIH26159 · NTRO · passive cryptographic posture</div>
+    </div>
+    <div class="railsec">
+      <span class="rubric">Capture</span>
+      <select id="capSel" style="width:100%"></select>
+    </div>
+    <nav id="nav">
+      <a data-v="overview" class="on"><span class="glyph">◈</span>Overview</a>
+      <a data-v="findings"><span class="glyph">▲</span>Findings<span class="n" id="nFind">–</span></a>
+      <a data-v="sessions"><span class="glyph">≡</span>Sessions<span class="n" id="nSess">–</span></a>
+      <a data-v="servers"><span class="glyph">◫</span>Servers<span class="n" id="nSrv">–</span></a>
+      <a data-v="behaviour"><span class="glyph">∿</span>Behaviour<span class="n" id="nDev">–</span></a>
+      <a data-v="policy"><span class="glyph">⌘</span>DNS policy<span class="n" id="nDom">–</span></a>
+      <a data-v="crypto"><span class="glyph">⬢</span>Cryptography</a>
+      <a data-v="method"><span class="glyph">?</span>Method &amp; limits</a>
+    </nav>
+    <div class="railfoot">
+      <div>Passive analysis · no active scanning</div>
+      <div style="margin-top:5px"><a href="/api/captures/policy/current" target="_blank" style="color:var(--accent)">policy.json</a> · <a href="/docs" target="_blank" style="color:var(--accent)">API</a></div>
+    </div>
+  </aside>
+
+  <main>
+    <div class="topbar">
+      <div>
+        <div class="title" id="capTitle">No capture</div>
+        <div class="hashline mono" id="capHash"></div>
+      </div>
+      <div class="fill"></div>
+      <input type="file" id="file" accept=".pcap,.pcapng,.gz" style="display:none">
+      <button onclick="window.open('/api/captures/'+CAP+'/report.html','_blank')" class="ghost">Report</button>
+      <button onclick="window.open('/api/captures/'+CAP+'/report.json','_blank')" class="ghost">JSON</button>
+      <button id="reBtn" class="ghost">Re-analyse</button>
+      <button id="upBtn" class="solid">Upload PCAP</button>
+      <button id="thBtn" class="ghost" title="Theme">◐</button>
+    </div>
+
+    <section id="v-overview" class="view"></section>
+    <section id="v-findings" class="view hide"></section>
+    <section id="v-sessions" class="view hide"></section>
+    <section id="v-servers" class="view hide"></section>
+    <section id="v-behaviour" class="view hide"></section>
+    <section id="v-policy" class="view hide"></section>
+    <section id="v-crypto" class="view hide"></section>
+    <section id="v-method" class="view hide"></section>
+  </main>
+</div>
+
+<dialog id="dlg">
+  <div class="dh"><h3 id="dlgT" style="font-size:14px">Session</h3><div style="flex:1"></div>
+    <button onclick="dlg.close()">Close</button></div>
+  <div class="db" id="dlgB"></div>
+</dialog>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const SEV = ["CRITICAL","HIGH","MEDIUM","LOW","INFO"];
+let CAP=null, OV=null, PO=null, S=[], F=[], SRV=[], DNS=null;
+
+// Encryption states are states, not series: they take the reserved status
+// palette, and every one is rendered with its label so colour never carries
+// the meaning alone.
+const SC = {
+  TLS_ESTABLISHED:"var(--good)", IMPLICIT_TLS:"var(--good)",
+  STARTTLS_ADVERTISED_NOT_USED:"var(--warning)",
+  STARTTLS_REJECTED:"var(--serious)", STARTTLS_NEGOTIATION_FAILED:"var(--serious)",
+  STARTTLS_NOT_ADVERTISED:"var(--critical)", PLAINTEXT_AFTER_FAILURE:"var(--critical)",
+  PLAINTEXT_THROUGHOUT:"var(--critical)", TRUNCATED:"var(--ink-3)", UNKNOWN:"var(--ink-3)",
+};
+const sc = s => SC[s] || "var(--accent)";
+const band = n => n==null ? "var(--ink-3)" : n>=80 ? "var(--good)" : n>=60 ? "var(--warning)" : n>=40 ? "var(--serious)" : "var(--critical)";
+const pretty = s => String(s||"").replace(/_/g," ").toLowerCase();
+
+// How the session got to its outcome, not just where it ended up. Mirrors
+// app/reports/builder.starttls_summary -- "advertised -> not used" is a client
+// problem, "not advertised" a server problem, "mangled" a network problem.
+function starttlsOf(x){
+  const st = x.encryption_state;
+  if (st === "IMPLICIT_TLS") return "implicit — no plaintext phase";
+  if (st === "TRUNCATED") return "not observed — capture incomplete";
+  if (x.upgrade_advertised_mangled) return "capability mangled → cleartext";
+  if (st === "STARTTLS_NOT_ADVERTISED") return "not advertised → cleartext";
+  if (st === "STARTTLS_REJECTED") return "requested → rejected";
+  if (st === "PLAINTEXT_AFTER_FAILURE") return "rejected → cleartext anyway";
+  if (st === "STARTTLS_NEGOTIATION_FAILED")
+    return x.upgrade_requested ? "requested → negotiation failed" : "began → never completed";
+  if (st === "STARTTLS_ADVERTISED_NOT_USED") return "advertised → never requested";
+  if (st === "TLS_ESTABLISHED")
+    return x.upgrade_requested ? "advertised → requested → established" : "established";
+  if (st === "PLAINTEXT_THROUGHOUT") return "never attempted";
+  return pretty(st);
+}
+
+async function api(p,o){ const r=await fetch(p,o); if(!r.ok) throw new Error(r.status+" "+await r.text()); return r.json(); }
+const bytes = n => { if(n==null) return "—"; const u=["B","KB","MB","GB"]; let i=0,v=n;
+  while(v>=1024&&i<u.length-1){v/=1024;i++;} return v.toFixed(i?1:0)+" "+u[i]; };
+const ts = t => t ? new Date(t).toISOString().replace("T"," ").slice(0,19)+"Z" : "—";
+
+/* ---------------- boot ---------------- */
+async function boot(){
+  const {items} = await api("/api/captures?limit=200");
+  const sel = $("#capSel"); sel.innerHTML="";
+  if(!items.length){ $("#v-overview").innerHTML =
+    `<div class="panel"><div class="empty">No capture loaded.<br><br>
+      Upload a <code class="mono">.pcap</code> / <code class="mono">.pcapng</code>, or generate the labelled corpus:<br>
+      <code class="mono">python3 -m testbed.synthetic.generate --all</code></div></div>`; return; }
+  for(const c of items){
+    const o=document.createElement("option"); o.value=c.capture_id;
+    o.textContent = `${c.ref} · ${c.original_filename}`; sel.appendChild(o);
+  }
+  await load(items[0].capture_id);
+}
+
+async function load(id){
+  CAP=id; $("#capSel").value=id;
+  OV = await api(`/api/captures/${id}/overview`);
+  if(!OV.sessions.total){ await api(`/api/captures/${id}/analyze`,{method:"POST"}); OV = await api(`/api/captures/${id}/overview`); }
+  [PO,S,F,SRV,DNS] = await Promise.all([
+    api(`/api/captures/${id}/posture`), api(`/api/captures/${id}/sessions`),
+    api(`/api/captures/${id}/findings`), api(`/api/captures/${id}/servers`),
+    api(`/api/captures/${id}/dns`),
+  ]);
+  const c=OV.capture;
+  $("#capTitle").textContent = c.filename;
+  $("#capHash").textContent = `${c.ref} · sha256 ${c.sha256.slice(0,32)}… · ${c.packet_count} packets · ${bytes(c.size_bytes)}`;
+  $("#nFind").textContent=F.length; $("#nSess").textContent=S.length; $("#nSrv").textContent=SRV.length;
+  $("#nDev").textContent=PO.deviations.length;
+  $("#nDom").textContent=DNS.domains.length;
+  drawOverview(); drawFindings(); drawSessions(); drawServers(); drawBehaviour(); drawCrypto(); drawPolicy(); drawMethod();
+}
+
+/* ---------------- overview ---------------- */
+function gauge(score){
+  // Semicircular arc, 180° sweep. Drawn by hand rather than pulled from a
+  // chart library -- one number needs one arc, not a dependency.
+  const R=64, C=Math.PI*R, pct=(score??0)/100;
+  return `<svg width="160" height="96" viewBox="0 0 160 96" aria-hidden="true">
+    <path d="M16 84 A64 64 0 0 1 144 84" fill="none" stroke="var(--rule)" stroke-width="9" stroke-linecap="round"/>
+    ${score!=null?`<path d="M16 84 A64 64 0 0 1 144 84" fill="none" stroke="${band(score)}" stroke-width="9"
+      stroke-linecap="round" stroke-dasharray="${(C*pct).toFixed(1)} ${C.toFixed(1)}"/>`:""}
+    <text x="80" y="74" text-anchor="middle" class="score" fill="var(--ink)"
+      style="font:600 42px system-ui;letter-spacing:-.03em">${score??"–"}</text>
+  </svg>`;
+}
+
+function drawOverview(){
+  const p=PO.posture, s=OV.sessions, f=OV.findings, cv=OV.coverage, cr=OV.crypto;
+
+  // Every dimension shows how it was measured, what it counted, and what the
+  // coverage denominator was. A score with no derivation is an assertion.
+  const dims = p.dimensions.map(d=>{
+    const na = d.status!=="assessed";
+    const capped = (d.contributors||[]).find(c=>c.startsWith("Capped"));
+    const other = (d.contributors||[]).filter(c=>!c.startsWith("Capped"));
+    return `<div class="dim ${na?"na":""}">
+      <div><div class="nm">${esc(d.label)}</div><div class="std">${esc(d.standard)}</div></div>
+      <div class="track">${na?"":`<div class="fill2" style="width:${d.score}%;background:${band(d.score)}"></div>`}</div>
+      <div class="val">${na?"N/A":d.score}</div>
+      <div class="why">
+        ${na
+          ? `<b>Not assessed.</b> ${esc(d.detail)} This dimension is excluded from the
+             overall score entirely — scoring it 0 would blame the operator for our blind
+             spot, and scoring it 100 would invent a clean result we never observed.`
+          : `<b>How this is measured:</b> ${esc(d.detail)}
+             <b>Coverage:</b> ${d.assessed} of ${d.total} sessions (${d.coverage_pct}%) carried
+             the evidence needed. <b>Weight:</b> ${(d.weight*100).toFixed(0)}% of the overall score.
+             ${other.map(c=>`<br>· ${esc(c)}`).join("")}`}
+      </div>
+      ${capped?`<div class="why cap"><b>⚠ ${esc(capped)}</b></div>`:""}
+    </div>`;
+  }).join("");
+
+  const states = Object.entries(s.by_state).sort((a,b)=>b[1]-a[1]);
+  const tot = states.reduce((n,[,v])=>n+v,0)||1;
+
+  const covRows = [
+    ["Certificate observable", cv.certificate_observable, cv.tls_sessions,
+     "Counted by looking for a Certificate handshake message in the captured bytes. TLS 1.3 encrypts it, so 0% here is normal and is not a server fault."],
+    ["Session fully observed", cv.sessions_fully_observed, OV.sessions.total,
+     "A session counts as fully observed only if the capture contains its termination (FIN or RST) and the reassembled stream has no missing bytes."],
+    ["Forward secrecy", cr.forward_secrecy, cv.tls_sessions,
+     "Derived from the negotiated cipher suite's key exchange: ECDHE/DHE yes, static RSA no. Every TLS 1.3 suite qualifies by design."],
+    ["Hybrid PQC offered (client)", cr.pqc_offered, cv.tls_sessions,
+     "Read from the ClientHello supported_groups extension — hybrid codepoints such as X25519MLKEM768 (0x11EC). Sent in cleartext, so this is directly observed."],
+    ["Hybrid PQC selected (server)", cr.pqc_selected, cv.tls_sessions,
+     "Read from the ServerHello key_share. A gap between offered and selected means clients have migrated and the server has not."],
+  ].map(([l,n,d,why])=>{
+    const pct = d ? Math.round(100*n/d) : null;
+    return `<div><div class="brow"><div>${l}</div>
+      <div class="track"><span style="width:${pct||0}%"></span></div>
+      <div class="n">${n}/${d} · ${pct==null?"—":pct+"%"}</div></div>
+      <div class="exp tight">${why}</div></div>`;
+  }).join("");
+
+  const tiles = [
+    ["Email sessions", s.total,
+     Object.entries(s.by_protocol).map(([k,v])=>`${k} ${v}`).join(" · ")||"—",
+     `Reconstructed from ${OV.capture.packet_count} packets by reassembling TCP streams and identifying SMTP/IMAP/POP3 from the server greeting, not just the port number.`],
+    ["TLS protected", s.protected, `${s.cleartext} cleartext · ${s.indeterminate} indeterminate`,
+     `Sessions ending in TLS_ESTABLISHED or IMPLICIT_TLS. "Indeterminate" means the capture was too incomplete to say — those are excluded from every verdict rather than assumed safe.`],
+    ["Findings", f.total,
+     SEV.filter(x=>f.by_severity[x]).map(x=>`<span class="sev s-${x}">${f.by_severity[x]}</span>`).join(" ")||"none",
+     `Produced by deterministic rules in <span class="mono">policy.json</span> — no model decides a verdict. Severity and remediation text come from that file and can be edited.`],
+    ["Undetermined", f.unknown_verdicts, "verdicts the capture cannot support",
+     `Findings carrying UNKNOWN rather than PASS/FAIL. Mostly certificates that TLS 1.3 encrypted. Counting these openly is the point — a tool that hides them looks more confident and is less honest.`],
+  ].map(([l,v,sub,why])=>`<div class="panel stat"><span class="rubric">${l}</span>
+    <div class="v">${v}</div><div class="s">${sub}</div><div class="exp">${why}</div></div>`).join("");
+
+  $("#v-overview").innerHTML = `
+    <div class="row r-4">${tiles}</div>
+
+    <div class="panel" style="margin-bottom:14px">
+      <header><span class="rubric">SecureMailScope posture score</span>
+        <span class="tag">${p.dimensions_assessed}/${p.dimensions_total} dimensions</span></header>
+      <div class="hero">
+        <div class="gauge">${gauge(p.overall)}
+          <div class="of">weighted, coverage-adjusted</div>
+          <div class="cap">Weighted mean of the dimensions that could<br>
+            actually be assessed. A severe finding caps<br>
+            its dimension, so this reflects the <b>worst</b><br>
+            observed state, not the average.<br><br>
+            Our stated methodology — not an industry rating.</div>
+        </div>
+        <div class="dims">${dims}</div>
+      </div>
+      <div class="pad" style="border-top:1px solid var(--rule)">
+        <div class="callout">${esc(p.note)}</div>
+        ${(()=>{const c=p.calculation; if(!c||!c.terms.length) return "";
+          return `<div style="margin-top:14px">
+          <div class="rubric" style="margin-bottom:7px">How this number was calculated</div>
+          <table style="max-width:560px">
+            ${c.terms.map(t=>`<tr><td>${esc(t.dimension)}</td>
+              <td class="right num">${t.score}</td>
+              <td class="right num muted">× ${t.weight.toFixed(2)}</td>
+              <td class="right num">= ${t.product.toFixed(1)}</td></tr>`).join("")}
+            ${c.excluded.map(x=>`<tr class="muted"><td>${esc(x.dimension)}</td>
+              <td class="right num">excluded</td><td class="right num">(${x.weight.toFixed(2)})</td>
+              <td class="right num">—</td></tr>`).join("")}
+            <tr style="border-top:1px solid var(--rule-strong)">
+              <td><b>Total</b></td><td class="right num"><b>${c.numerator.toFixed(1)}</b></td>
+              <td class="right num"><b>÷ ${c.denominator.toFixed(2)}</b></td>
+              <td class="right num"><b>= ${c.result.toFixed(2)} → ${c.rounded}</b></td></tr>
+          </table>
+          <div class="exp"><b>Coverage is not the score.</b> ${esc(c.coverage_meaning)}</div>
+        </div>`;})()}
+      </div>
+    </div>
+
+    <div class="row r-2">
+      <div class="panel">
+        <header><span class="rubric">Encryption posture</span></header>
+        <div class="pad">
+          <div class="stack">${states.map(([k,v])=>
+            `<span title="${k}: ${v}" style="width:${(v/tot*100).toFixed(2)}%;background:${sc(k)}"></span>`).join("")}</div>
+          <div class="keys">${states.map(([k,v])=>
+            `<span><i style="background:${sc(k)}"></i>${pretty(k)} <b>${v}</b></span>`).join("")}</div>
+          <div class="exp">Each session is driven through an explicit encryption state machine and
+            ends in exactly one terminal state. Colours are the reserved status palette, not
+            series colours, and every segment is labelled — colour never carries the meaning
+            alone. <b>Truncated</b> means the capture ended mid-session, so no verdict is
+            possible; those sessions are excluded from scoring rather than assumed safe.</div>
+        </div>
+      </div>
+      <div class="panel">
+        <header><span class="rubric">Evidence coverage</span></header>
+        <div class="pad"><div class="bars">${covRows}</div>
+          <div class="note" style="margin-top:13px">${esc(cv.note)}</div></div>
+      </div>
+    </div>`;
+}
+
+/* ---------------- findings ---------------- */
+function drawFindings(){
+  const byCat = [...new Set(F.map(f=>f.category))].sort();
+  $("#v-findings").innerHTML = `
+    <div class="panel">
+      <header>
+        <span class="rubric">Findings</span>
+        <select id="fSev"><option value="">All severities</option>${SEV.filter(x=>F.some(f=>f.severity===x)).map(x=>`<option>${x}</option>`).join("")}</select>
+        <select id="fCat"><option value="">All categories</option>${byCat.map(c=>`<option value="${esc(c)}">${esc(c.replace(/_/g," "))}</option>`).join("")}</select>
+      </header>
+      <div id="fList"></div>
+    </div>`;
+  $("#fSev").onchange=$("#fCat").onchange=renderF; renderF();
+}
+
+function renderF(){
+  const sv=$("#fSev").value, ct=$("#fCat").value;
+  const rows=F.filter(f=>(!sv||f.severity===sv)&&(!ct||f.category===ct));
+  if(!rows.length){ $("#fList").innerHTML=`<div class="empty">No findings match.</div>`; return; }
+
+  $("#fList").innerHTML = rows.map(f=>{
+    const ses = S.find(x=>x.ref===f.session_ref);
+    const chain = `<div class="chain">
+      <div><div class="k">Capture</div><div class="v mono">${esc(OV.capture.ref)}</div></div>
+      ${f.session_ref?`<div><div class="k">Session</div><div class="v mono">${esc(f.session_ref)}</div></div>`:""}
+      ${ses?`<div><div class="k">Endpoint</div><div class="v mono">${esc(ses.server_ip)}:${ses.server_port}</div></div>`:""}
+      <div><div class="k">Frames</div><div class="v mono">${(f.evidence_frames||[]).join(", ")||"—"}</div></div>
+      <div><div class="k">SHA-256 of evidence</div><div class="v mono">${esc(OV.capture.sha256.slice(0,24))}…</div></div>
+    </div>`;
+
+    return `<details class="fnd">
+      <summary>
+        <span class="id mono">${esc(f.ref)}</span>
+        <span class="sev s-${f.severity}">${f.severity}</span>
+        <span class="hd">${esc(f.title)}</span>
+        ${f.session_ref?`<span class="mono muted" style="font-size:11px">${esc(f.session_ref)}</span>`:""}
+        <span class="tag ${f.verdict==="UNKNOWN"?"unk":""}">${f.verdict}</span>
+        <span class="tag ${f.detection_method==="ml"?"ml":""}">${Math.round(f.confidence*100)}% · ${esc(f.detection_method)}</span>
+      </summary>
+      <div class="det">
+        <h5>Observed</h5><p>${esc(f.description)}</p>
+        <h5>Why this is the conclusion</h5><p>${esc(f.rationale)}</p>
+        ${f.recommendation?`<h5>Remediation</h5><p>${esc(f.recommendation)}</p>`:""}
+        ${f.standard_refs?.length?`<h5>Standards</h5><p>${f.standard_refs.map(esc).join(" · ")}</p>`:""}
+        <h5>Evidence chain</h5>${chain}
+        <h5>Verify independently in Wireshark</h5>
+        <div class="cmd"><code class="mono">${esc(f.wireshark_filter||"—")}</code>
+          <button onclick="cp(this,${JSON.stringify(f.wireshark_filter||"")})">Copy filter</button>
+          <button class="solid" onclick="window.open('/api/captures/'+CAP+'/findings/${esc(f.ref)}/pcap','_blank')">Download evidence PCAP</button></div>
+        <div class="exp tight">The download is cut with <b>this exact filter</b>, so what you verify
+          in Wireshark is precisely what the finding claims. The response carries the slice's own
+          SHA-256 and the parent capture's, so the chain of custody survives the export.</div>
+      </div>
+    </details>`;
+  }).join("");
+}
+function cp(b,t){ navigator.clipboard.writeText(t).then(()=>{ const o=b.textContent; b.textContent="Copied"; setTimeout(()=>b.textContent=o,1200); }); }
+
+/* ---------------- sessions ---------------- */
+function drawSessions(){
+  const protos=[...new Set(S.map(x=>x.protocol))].sort();
+  const states=[...new Set(S.map(x=>x.encryption_state))].sort();
+  $("#v-sessions").innerHTML=`
+    <div class="panel">
+      <header><span class="rubric">Reconstructed sessions</span>
+        <select id="sP"><option value="">All protocols</option>${protos.map(p=>`<option>${p}</option>`).join("")}</select>
+        <select id="sS"><option value="">All states</option>${states.map(s=>`<option value="${s}">${pretty(s)}</option>`).join("")}</select>
+      </header>
+      <div class="scroll" id="sTbl"></div>
+    </div>`;
+  $("#sP").onchange=$("#sS").onchange=renderS; renderS();
+}
+function renderS(){
+  const p=$("#sP").value, st=$("#sS").value;
+  const rows=S.filter(x=>(!p||x.protocol===p)&&(!st||x.encryption_state===st));
+  $("#sTbl").innerHTML=`<table>
+    <thead><tr><th>Session</th><th>Proto</th><th>Client</th><th>Server</th><th>Encryption state</th>
+    <th>STARTTLS</th><th>TLS</th><th>Cipher</th><th>PFS</th><th>Group</th>
+    <th class="right">Frames</th><th class="right">Anomaly</th></tr></thead>
+    <tbody>${rows.map(x=>`<tr class="clk ${x.is_anomalous?"flag":""}" onclick="openS('${esc(x.ref)}')">
+      <td class="mono">${esc(x.ref)}</td><td>${esc(x.protocol)}</td>
+      <td class="mono muted">${esc(x.client_ip)}:${x.client_port}</td>
+      <td class="mono">${esc(x.server_ip)}:${x.server_port}</td>
+      <td><span class="sev" style="color:${sc(x.encryption_state)}">${pretty(x.encryption_state)}</span></td>
+      <td class="muted" style="font-size:11px">${esc(starttlsOf(x))}</td>
+      <td>${esc(x.tls_version||"—")}</td>
+      <td class="mono" style="font-size:11px">${esc((x.tls_cipher_suite||"—").replace(/^TLS_/,""))}</td>
+      <td>${x.tls_forward_secrecy==null?"—":(x.tls_forward_secrecy?"yes":"no")}</td>
+      <td>${esc(x.tls_selected_group||"—")}</td>
+      <td class="right muted">${x.first_frame}–${x.last_frame}</td>
+      <td class="right">${x.anomaly_score==null?"—":`<span style="color:${x.is_anomalous?"var(--critical)":"var(--ink-3)"}">${x.anomaly_score.toFixed(2)}</span>`}</td>
+    </tr>`).join("")}</tbody></table>`;
+}
+
+/* ---------------- servers ---------------- */
+function drawServers(){
+  const fp = PO.fingerprints;
+  $("#v-servers").innerHTML = `
+    <div class="panel" style="margin-bottom:14px">
+      <header><span class="rubric">STARTTLS capability behaviour</span></header>
+      <div class="pad"><p class="note" style="margin:0 0 12px">
+        How each server behaved across <em>every</em> session in this capture. Inconsistency here — not
+        anything visible inside a single session — is what exposes on-path STARTTLS stripping.</p>
+      <div class="scroll"><table>
+        <thead><tr><th>Server</th><th class="right">Sessions</th><th class="right">Advertised</th>
+        <th class="right">Mangled</th><th class="right">Silent</th><th class="right">Ratio</th></tr></thead>
+        <tbody>${SRV.map(s=>`<tr class="${s.mangled_capability?"flag":""}">
+          <td class="mono">${esc(s.server)}</td><td class="right">${s.sessions_observed}</td>
+          <td class="right" style="color:var(--good)">${s.advertised_starttls}</td>
+          <td class="right" style="color:var(--critical);font-weight:${s.mangled_capability?700:400}">${s.mangled_capability}</td>
+          <td class="right">${s.no_capability}</td>
+          <td class="right">${(s.advertise_ratio*100).toFixed(0)}%</td></tr>`).join("")}</tbody>
+      </table></div></div>
+    </div>
+
+    <div class="row r-2">${fp.map(f=>`
+      <div class="panel">
+        <header><span class="rubric mono" style="text-transform:none;letter-spacing:0">${esc(f.server)}</span>
+          <span class="tag">${f.sessions} sessions</span>
+          ${f.has_baseline?`<span class="tag" style="color:var(--good);border-color:currentColor">baseline</span>`
+                          :`<span class="tag">no baseline</span>`}</header>
+        <div class="pad">
+          ${f.banner?`<div class="note mono" style="margin-bottom:11px">${esc(f.banner.slice(0,70))}</div>`:""}
+          ${Object.entries(f.dimensions).map(([k,d])=>`
+            <div style="margin-bottom:10px">
+              <div class="rubric" style="margin-bottom:4px">${esc(d.name)}</div>
+              ${d.values.slice(0,3).map(v=>`<div class="brow">
+                <div class="mono" style="font-size:11.5px;overflow:hidden;text-overflow:ellipsis">${esc(String(v.value).replace(/^TLS_/,""))}</div>
+                <div class="track"><span style="width:${v.share*100}%"></span></div>
+                <div class="n">${v.count} · ${Math.round(v.share*100)}%</div></div>`).join("")}
+            </div>`).join("")}
+          ${f.median_handshake_ms!=null?`<div class="note">median handshake ${f.median_handshake_ms} ms</div>`:""}
+        </div>
+      </div>`).join("")}
+    </div>`;
+}
+
+/* ---------------- behaviour ---------------- */
+function drawBehaviour(){
+  const a=PO.anomaly, d=PO.deviations;
+  $("#v-behaviour").innerHTML = `
+    <div class="panel" style="margin-bottom:14px">
+      <header><span class="rubric">Anomaly model</span>
+        ${a.available?`<span class="tag ml">${a.outliers} outliers / ${a.sessions_scored} scored</span>`:`<span class="tag">unavailable</span>`}</header>
+      <div class="pad">
+        ${a.available
+          ? `<div class="kv"><dt>Model</dt><dd class="mono">${esc(a.model)}</dd>
+              <dt>Trained on</dt><dd>this capture's own sessions (unsupervised)</dd></div>`
+          : `<div class="callout">${esc(a.reason)}</div>`}
+        <div class="callout ok" style="margin-top:12px">${esc(a.disclaimer)}</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <header><span class="rubric">Baseline deviation &amp; anomaly detail</span></header>
+      ${d.length ? d.map(x=>`
+        <div style="padding:13px 16px;border-bottom:1px solid var(--rule)">
+          <div style="display:flex;align-items:center;gap:11px;flex-wrap:wrap">
+            <span class="mono" style="font-weight:600">${esc(x.session_ref)}</span>
+            <span class="mono muted" style="font-size:11.5px">${esc(x.server)}</span>
+            <div style="flex:1"></div>
+            ${x.score?`<span class="tag">deviation ${x.score}</span>`:""}
+            ${x.anomaly_score!=null?`<span class="tag" style="${x.is_anomalous?"color:var(--critical);border-color:currentColor":""}">anomaly ${x.anomaly_score.toFixed(2)}</span>`:""}
+          </div>
+          ${x.deviations.length?`<div style="margin-top:9px">
+            <div class="rubric" style="margin-bottom:4px">Deterministic deviation from this server's own profile</div>
+            ${x.deviations.map(v=>`<div class="note">· <b>${esc(v.label)}</b> — expected
+              <span class="mono">${esc(v.expected.replace(/^TLS_/,""))}</span> (${Math.round(v.expected_share*100)}% of sessions),
+              observed <span class="mono" style="color:var(--critical)">${esc(v.observed.replace(/^TLS_/,""))}</span></div>`).join("")}
+          </div>`:""}
+          ${x.attribution?.length?`<div style="margin-top:9px">
+            <div class="rubric" style="margin-bottom:4px">Model attribution — which features pushed it out</div>
+            ${x.attribution.map(t=>`<div class="note">· <span class="mono">${esc(t.feature)}</span> = ${t.value}
+              (population median ${t.population_median}, ${t.deviation_mad} MAD)</div>`).join("")}
+          </div>`:""}
+        </div>`).join("")
+      : `<div class="empty">No session deviates from its server's baseline.</div>`}
+    </div>`;
+}
+
+/* ---------------- cryptography ---------------- */
+function drawCrypto(){
+  const c=OV.crypto, cv=OV.coverage;
+  const bar = (obj,total) => Object.entries(obj).sort((a,b)=>b[1]-a[1]).map(([k,v])=>
+    `<div class="brow"><div class="mono" style="font-size:11.5px">${esc(k.replace(/^TLS_/,""))}</div>
+     <div class="track"><span style="width:${v/total*100}%"></span></div>
+     <div class="n">${v} · ${Math.round(v/total*100)}%</div></div>`).join("");
+  const t = cv.tls_sessions||1;
+
+  $("#v-crypto").innerHTML = `
+    <div class="row r-2">
+      <div class="panel"><header><span class="rubric">Negotiated TLS versions</span></header>
+        <div class="pad"><div class="bars">${bar(c.by_tls_version,t)||'<div class="muted">none</div>'}</div>
+          <div class="exp">Taken from the ServerHello. For TLS 1.3 the version is read from the
+          <span class="mono">supported_versions</span> extension, not the legacy version field —
+          RFC 8446 pins that field to 0x0303, so reading it would report every TLS 1.3 session
+          as TLS 1.2.</div></div></div>
+      <div class="panel"><header><span class="rubric">Negotiated cipher suites</span></header>
+        <div class="pad"><div class="bars">${bar(c.by_cipher,t)||'<div class="muted">none</div>'}</div>
+          <div class="exp">Decomposed from the negotiated suite. TLS 1.2 names encode key exchange
+          and authentication; TLS 1.3 names do not — key exchange comes from
+          <span class="mono">key_share</span> and authentication from the certificate, so those
+          fields correctly read as absent rather than unknown.</div></div></div>
+    </div>
+
+    <div class="panel">
+      <header><span class="rubric">Post-quantum migration readiness</span>
+        <span class="tag">inventory, not a threat assessment</span>
+        <button onclick="window.open('/api/captures/'+CAP+'/cbom','_blank')">Download CBOM</button></header>
+      <div class="pad">
+        <div class="bars" style="max-width:560px">
+          <div class="brow"><div>Clients offering hybrid PQC key exchange</div>
+            <div class="track"><span style="width:${c.pqc_offered/t*100}%"></span></div>
+            <div class="n">${c.pqc_offered}/${t}</div></div>
+          <div class="brow"><div>Servers selecting hybrid PQC</div>
+            <div class="track"><span style="width:${c.pqc_selected/t*100}%;background:${c.pqc_selected?"var(--good)":"var(--critical)"}"></span></div>
+            <div class="n">${c.pqc_selected}/${t}</div></div>
+          <div class="brow"><div>Sessions with forward secrecy</div>
+            <div class="track"><span style="width:${c.forward_secrecy/t*100}%"></span></div>
+            <div class="n">${c.forward_secrecy}/${t}</div></div>
+        </div>
+        <div class="callout ok" style="margin-top:14px">
+          Hybrid post-quantum key exchange (X25519MLKEM768, codepoint 0x11EC) is visible in cleartext in
+          every ClientHello, so this is observed fact rather than projection. It is an inventory of where
+          classical public-key cryptography remains — not a claim that any attack is occurring.
+          Sessions without forward secrecy are the clearest harvest-now-decrypt-later exposure.
+          <br><br><b>Download CBOM</b> exports this as a CycloneDX 1.6 Cryptographic Bill of
+          Materials — the same standard used for software supply-chain inventories, here produced
+          from observed traffic rather than from source code or configuration.
+        </div>
+      </div>
+    </div>`;
+}
+
+/* ---------------- DNS policy ---------------- */
+function drawPolicy(){
+  const yn = (v, yes, no, unk) => v===true ? `<span style="color:var(--good)">${yes}</span>`
+    : v===false ? `<span style="color:var(--critical)">${no}</span>`
+    : `<span class="muted">${unk||"not observed"}</span>`;
+
+  if(!DNS.observed){
+    $("#v-policy").innerHTML = `<div class="panel"><header><span class="rubric">DNS policy audit</span></header>
+      <div class="pad"><div class="callout"><b>No DNS in this capture — policy cannot be assessed.</b>
+      This is deliberately reported as <em>undetermined</em>, not as &quot;no policy published&quot;.
+      Those are different claims and only one of them is supported by the evidence.<br><br>
+      To enable this analysis, capture DNS alongside mail traffic:
+      <span class="mono">tcpdump -i any -s 0 -w mail.pcap 'tcp or udp port 53'</span></div></div></div>`;
+    return;
+  }
+
+  $("#v-policy").innerHTML = `
+    <div class="panel" style="margin-bottom:14px">
+      <header><span class="rubric">Email transport-security policy, from DNS in this capture</span>
+        <span class="tag">${DNS.total_records} DNS records</span></header>
+      <div class="pad"><p class="note" style="margin:0">
+        Real captures contain the lookups that preceded each SMTP connection. Correlating those
+        against what the sessions then did is what turns &quot;this went in cleartext&quot; into
+        &quot;this went in cleartext <em>after the sender had already fetched a policy forbidding
+        it</em>&quot; — a provable violation rather than an observation.</p></div>
+    </div>
+
+    ${DNS.domains.map(d=>`
+    <div class="panel" style="margin-bottom:14px">
+      <header><span class="rubric mono" style="text-transform:none;letter-spacing:0;font-size:12px">${esc(d.domain)}</span>
+        ${d.mta_sts.published===true?`<span class="tag" style="color:var(--good);border-color:currentColor">MTA-STS published</span>`:""}
+        ${d.mta_sts.published===false?`<span class="tag" style="color:var(--critical);border-color:currentColor">no MTA-STS</span>`:""}</header>
+      <div class="pad">
+        <dl class="kv">
+          <dt>MX hosts</dt><dd class="mono">${esc(d.mx_hosts.join(", ")||"—")}</dd>
+          <dt>Resolved to</dt><dd class="mono">${esc(d.resolved_ips.join(", ")||"—")}</dd>
+          <dt>MTA-STS (RFC 8461)</dt><dd>${yn(d.mta_sts.published,"published","not published")}
+            ${d.mta_sts.id?`<span class="muted mono"> id=${esc(d.mta_sts.id)}</span>`:""}
+            ${d.mta_sts.queried?`<span class="muted"> · sender queried for it</span>`:""}</dd>
+          <dt>DANE/TLSA (RFC 7672)</dt><dd>${yn(d.dane.published,"published","not published")}</dd>
+          <dt>TLS-RPT (RFC 8460)</dt><dd>${yn(d.tls_rpt.published,"configured","not configured")}</dd>
+          <dt>SPF</dt><dd>${yn(d.spf.published,"published","not published")}
+            ${d.spf.qualifier?`<span class="muted mono"> ${esc(d.spf.qualifier)}all</span>`:""}</dd>
+          <dt>DMARC</dt><dd>${yn(d.dmarc.published,"published","not published")}
+            ${d.dmarc.policy?`<span class="muted mono"> p=${esc(d.dmarc.policy)}</span>`:""}</dd>
+        </dl>
+        <div class="exp">Derived from ${d.frames.length} DNS frame(s) in this capture
+          (frames ${d.frames.slice(0,6).join(", ")}${d.frames.length>6?"…":""}).
+          <b>&quot;Not observed&quot; means the capture contains no lookup for that record</b> — it does
+          not mean the record is absent from DNS.</div>
+      </div>
+    </div>`).join("")}
+
+    <div class="panel"><div class="pad"><div class="exp tight">${esc(DNS.note)}</div></div></div>`;
+}
+
+/* ---------------- method & limitations ---------------- */
+function drawMethod(){
+  const yes = t => `<tr><td style="color:var(--good);width:20px">✓</td><td>${t}</td></tr>`;
+  const no  = t => `<tr><td style="color:var(--critical);width:20px">✕</td><td>${t}</td></tr>`;
+  const part= t => `<tr><td style="color:var(--warning);width:20px">◐</td><td>${t}</td></tr>`;
+
+  $("#v-method").innerHTML = `
+    <div class="row r-2">
+      <div class="panel">
+        <header><span class="rubric">What this tool does</span></header>
+        <div class="pad">
+          <table>
+            ${yes("Reads a PCAP/PCAPNG passively. It never connects to, scans, or probes any mail server.")}
+            ${yes("Reassembles TCP streams and reconstructs SMTP, IMAP and POP3 sessions.")}
+            ${yes("Tracks the plaintext → TLS transition, including POP3's STLS, and split commands.")}
+            ${yes("Extracts TLS version, cipher suite, key exchange group, SNI, ALPN, JA3/JA4/JA4S.")}
+            ${yes("Detects hybrid post-quantum key exchange offers from the ClientHello.")}
+            ${yes("Detects cleartext credentials without ever storing them.")}
+            ${yes("Correlates each server's behaviour across all its sessions to find STARTTLS stripping.")}
+          </table>
+        </div>
+      </div>
+      <div class="panel">
+        <header><span class="rubric">What it cannot do — and why</span></header>
+        <div class="pad">
+          <table>
+            ${no("<b>Read message content.</b> TLS application data stays encrypted. We analyse handshakes, certificates and flow behaviour — by design, not by limitation.")}
+            ${no("<b>Read certificates from TLS 1.3.</b> RFC 8446 encrypts the Certificate message under handshake keys. Needs TLS ≤1.2 or an SSLKEYLOGFILE.")}
+            ${no("<b>Validate a certificate chain to a trust root.</b> A capture rarely contains the enterprise trust store, so the honest answer is UNKNOWN.")}
+            ${part("<b>See SNI where ECH is deployed.</b> Reported as encrypted_ech, never as &quot;no SNI&quot;.")}
+            ${part("<b>Parse X.509 details.</b> Certificate extraction is implemented; field-level analysis (expiry, SAN, key size) lands with the tier-2 testbed.")}
+            ${no("<b>Prove an attack.</b> An anomaly is deviating behaviour. Every verdict here comes from a deterministic rule.")}
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-bottom:14px">
+      <header><span class="rubric">Is this deterministic?</span><span class="tag" style="color:var(--good);border-color:currentColor">yes</span></header>
+      <div class="pad">
+        <p class="note" style="margin:0 0 10px">
+          The same PCAP always produces the same sessions, the same findings and the same score.
+          Nothing in the verdict path is probabilistic:</p>
+        <table>
+          <tr><td style="width:190px"><b>Session reconstruction</b></td><td class="note">Deterministic. TShark dissection plus sequence-number ordering.</td></tr>
+          <tr><td><b>Encryption state machine</b></td><td class="note">Deterministic. A fixed state machine over parsed protocol events.</td></tr>
+          <tr><td><b>All findings</b></td><td class="note">Deterministic rules. Severity, confidence and remediation come from <span class="mono">policy.json</span>.</td></tr>
+          <tr><td><b>Posture score</b></td><td class="note">Deterministic. Weighted arithmetic over counted sessions, with severity ceilings.</td></tr>
+          <tr><td><b>Baseline deviation</b></td><td class="note">Deterministic. Per-attribute comparison against the server's own dominant value.</td></tr>
+          <tr><td><b>Anomaly score</b></td><td class="note">Isolation Forest with a <span class="mono">fixed seed (random_state=42)</span> — reproducible, and it never sets a verdict.</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-bottom:14px">
+      <header><span class="rubric">Will my own capture work?</span></header>
+      <div class="pad">
+        <table>
+          ${yes("<b>IPv4 and IPv6</b> TCP sessions.")}
+          ${yes("<b>Standard ports</b> — 25, 465, 587, 2525, 110, 143, 993, 995.")}
+          ${yes("<b>Non-standard ports</b> — found from the server greeting, and reported as a finding in its own right.")}
+          ${yes("<b>Gzipped captures</b> (.pcap.gz / .pcapng.gz), read without decompressing to disk.")}
+          ${yes("<b>Truncated or mid-session captures</b> — reported as UNKNOWN rather than guessed.")}
+          ${part("<b>Snaplen-truncated captures</b> — flagged on the manifest; payload analysis may be incomplete.")}
+          ${no("<b>Non-TCP mail transports</b> and captures with no email traffic will simply yield zero sessions.")}
+        </table>
+        <div class="callout ok" style="margin-top:12px">
+          Capture with a full snaplen for best results: <span class="mono">tcpdump -i any -s 0 -w mail.pcap 'tcp'</span>.
+          A cut-short snaplen removes the payload bytes that protocol reconstruction depends on.
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <header><span class="rubric">Where the analysis runs</span></header>
+      <div class="pad">
+        <table>
+          <tr><td style="width:190px"><b>TShark 4.0.17</b></td><td class="note">Packet dissection. Pass 1 indexes every TCP flow; pass 2 pulls payload only for candidate email flows.</td></tr>
+          <tr><td><b>Our code</b></td><td class="note">Stream reassembly with frame provenance, protocol parsing, TLS analysis, policy engine, posture, fingerprints.</td></tr>
+          <tr><td><b>scikit-learn</b></td><td class="note">Isolation Forest only. No deep learning anywhere in this project.</td></tr>
+          <tr><td><b>PostgreSQL 16</b></td><td class="note">Sessions, findings and evidence.</td></tr>
+          <tr><td><b>Isolation</b></td><td class="note">All of it in a container as unprivileged uid 10001. Uploaded filenames never touch the filesystem; every tool runs from an argument list, never a shell.</td></tr>
+        </table>
+      </div>
+    </div>`;
+}
+
+/* ---------------- session drawer ---------------- */
+async function openS(ref){
+  const s = await api(`/api/captures/${CAP}/sessions/${ref}`);
+  $("#dlgT").innerHTML = `<span class="mono">${esc(s.ref)}</span> &nbsp;<span class="muted" style="font-weight:400;font-size:12.5px">${esc(s.protocol)} · ${esc(s.client_ip)}:${s.client_port} → ${esc(s.server_ip)}:${s.server_port}</span>`;
+  const d=s.tls_detail;
+  const tl=(s.state_transitions||[]).map(t=>`<li><span class="st" style="color:${sc(t.to)}">${pretty(t.to)}</span>
+      <div class="mt">frame ${t.frame} · ${esc(t.trigger)}</div></li>`).join("")
+    || `<li><span class="muted">No transitions recorded</span></li>`;
+
+  $("#dlgB").innerHTML = `
+    <div class="rubric" style="margin-bottom:9px">Encryption timeline</div>
+    <ul class="tl">${tl}</ul>
+
+    <div class="rubric" style="margin:20px 0 9px">Negotiated cryptography</div>
+    ${d ? `<dl class="kv">
+      <dt>Version</dt><dd>${esc(d.negotiated_version||"—")}</dd>
+      <dt>Offered</dt><dd>${esc((d.versions_offered||[]).join(", ")||"—")}</dd>
+      <dt>Cipher</dt><dd class="mono">${esc(d.cipher_suite?.name||"—")}</dd>
+      <dt>Key exchange</dt><dd>${esc(d.cipher_suite?.key_exchange || (d.negotiated_version==="TLS 1.3" ? "via key_share — absent from TLS 1.3 suite names" : "—"))}</dd>
+      <dt>Group</dt><dd>${esc(d.selected_group||"—")}</dd>
+      <dt>Forward secrecy</dt><dd>${d.cipher_suite?.forward_secrecy==null?"—":(d.cipher_suite.forward_secrecy?"yes":"no")}</dd>
+      <dt>SNI</dt><dd>${esc(d.sni||d.sni_status||"—")}</dd>
+      <dt>PQC offered</dt><dd>${esc((d.pqc_groups_offered||[]).join(", ")||"none")}</dd>
+      <dt>JA3</dt><dd class="mono">${esc(d.ja3||"—")}</dd>
+      <dt>JA4</dt><dd class="mono">${esc(d.ja4||"—")}</dd>
+      <dt>JA4S</dt><dd class="mono">${esc(d.ja4s||"—")}</dd>
+      <dt>Handshake</dt><dd>${d.handshake_duration_ms!=null?d.handshake_duration_ms+" ms":"—"}</dd></dl>
+      ${!d.cert_observable?`<div class="callout" style="margin-top:12px"><b>Certificate not observable.</b> ${esc(d.cert_unobservable_reason||"")}</div>`:""}
+      ${d.certificate&&d.certificate.observed?(()=>{const c=d.certificate,l=c.chain[0];return `
+        <div class="rubric" style="margin:20px 0 9px">Certificate</div>
+        <dl class="kv">
+          <dt>Subject</dt><dd class="mono">${esc(l.subject)}</dd>
+          <dt>Issuer</dt><dd class="mono">${esc(l.issuer)}</dd>
+          <dt>SAN</dt><dd class="mono">${esc((l.san||[]).join(", ")||"—")}</dd>
+          <dt>Serial</dt><dd class="mono">${esc(l.serial)}</dd>
+          <dt>Validity</dt><dd>${esc(l.not_before.slice(0,10))} → ${esc(l.not_after.slice(0,10))}
+            ${c.days_to_expiry!=null?`<span class="muted"> (${c.days_to_expiry} days left at capture time)</span>`:""}</dd>
+          <dt>Public key</dt><dd>${esc(l.public_key_algorithm)} ${l.public_key_bits||"?"}-bit</dd>
+          <dt>Signature</dt><dd class="mono">${esc(l.signature_algorithm)}</dd>
+          <dt>Chain</dt><dd>${c.chain_length} certificate(s)</dd>
+          <dt>SHA-256</dt><dd class="mono" style="font-size:10px">${esc(l.fingerprint_sha256)}</dd>
+        </dl>
+        ${c.reasons.length?`<div class="callout" style="margin-top:10px">
+          ${c.reasons.map(r=>`<div>· ${esc(r)}</div>`).join("")}</div>`:""}
+        <div class="exp">Validity is evaluated at <b>capture time</b> (${esc((c.evaluated_at||"").slice(0,19))}),
+          not at the moment you are reading this. A certificate that expired after the traffic was
+          recorded was not a problem at the time, and comparing against the wall clock would raise a
+          false critical on every archived capture.<br>
+          <b>Chain trust is UNKNOWN by design:</b> ${esc(c.chain_trust_reason)}</div>`;})():""}`
+    : `<div class="muted">No TLS handshake observed in this session.</div>`}
+
+    ${s.baseline_deviations?.length?`<div class="rubric" style="margin:20px 0 9px">Baseline deviation</div>
+      ${s.baseline_deviations.map(v=>`<div class="note">· <b>${esc(v.label)}</b> — expected
+        <span class="mono">${esc(v.expected)}</span> (${Math.round(v.expected_share*100)}%), observed
+        <span class="mono" style="color:var(--critical)">${esc(v.observed)}</span></div>`).join("")}`:""}
+
+    <div class="rubric" style="margin:20px 0 9px">Protocol events</div>
+    <div class="scroll"><table><thead><tr><th class="right">Frame</th><th>Dir</th><th>Event</th><th>Detail</th></tr></thead>
+      <tbody>${(s.events||[]).map(e=>`<tr><td class="right muted">${e.frame}</td><td>${esc(e.direction)}</td>
+        <td class="mono">${esc(e.kind)}</td><td class="muted">${esc(e.detail)}</td></tr>`).join("")
+        || `<tr><td colspan="4" class="muted">none</td></tr>`}</tbody></table></div>
+
+    <div class="rubric" style="margin:20px 0 7px">Wireshark filter</div>
+    <div class="cmd"><code class="mono">${esc(s.wireshark_filter)}</code>
+      <button onclick="cp(this,${JSON.stringify(s.wireshark_filter)})">Copy</button>
+      <button class="solid" onclick="window.open('/api/captures/'+CAP+'/sessions/${esc(s.ref)}/pcap','_blank')">Download PCAP</button></div>`;
+  $("#dlg").showModal();
+}
+
+/* ---------------- wiring ---------------- */
+$("#nav").onclick = e => {
+  const a = e.target.closest("a[data-v]"); if(!a) return;
+  document.querySelectorAll("#nav a").forEach(x=>x.classList.toggle("on", x===a));
+  document.querySelectorAll(".view").forEach(v=>v.classList.add("hide"));
+  $("#v-"+a.dataset.v).classList.remove("hide");
+};
+$("#capSel").onchange = e => load(e.target.value);
+$("#upBtn").onclick = () => $("#file").click();
+$("#file").onchange = async e => {
+  const f=e.target.files[0]; if(!f) return;
+  $("#upBtn").textContent="Uploading…"; $("#upBtn").disabled=true;
+  try{ const fd=new FormData(); fd.append("file",f);
+    const c=await api("/api/captures",{method:"POST",body:fd});
+    await api(`/api/captures/${c.capture_id}/analyze`,{method:"POST"});
+    await boot(); await load(c.capture_id);
+  }catch(err){ alert("Upload failed: "+err.message); }
+  finally{ $("#upBtn").textContent="Upload PCAP"; $("#upBtn").disabled=false; e.target.value=""; }
+};
+$("#reBtn").onclick = async () => {
+  if(!CAP) return; $("#reBtn").textContent="Analysing…"; $("#reBtn").disabled=true;
+  try{ await api(`/api/captures/${CAP}/analyze`,{method:"POST"}); await load(CAP); }
+  catch(err){ alert("Analysis failed: "+err.message); }
+  finally{ $("#reBtn").textContent="Re-analyse"; $("#reBtn").disabled=false; }
+};
+$("#thBtn").onclick = () => {
+  const r=document.documentElement, c=r.getAttribute("data-theme");
+  const n = c==="dark" ? "light" : c==="light" ? "" : "dark";
+  n ? r.setAttribute("data-theme",n) : r.removeAttribute("data-theme");
+};
+
+boot();
+</script>
+</body>
+</html>
