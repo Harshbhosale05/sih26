@@ -1,8 +1,13 @@
-.PHONY: up down build logs shell db-shell health clean test-upload
+.PHONY: up down build logs shell db-shell health clean test-upload web
 
 up:
 	docker compose up -d --build
 	@echo "API      → http://localhost:8000/docs"
+	@echo "UI       → http://localhost:5173"
+
+# Run the React dashboard locally instead of in docker (needs Node 20+).
+web:
+	cd frontend && npm install && npm run dev
 
 down:
 	docker compose down

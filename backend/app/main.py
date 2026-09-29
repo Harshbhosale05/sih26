@@ -9,7 +9,9 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__
 from app.api import (
+    analytics_router,
     captures_router,
+    drift_router,
     findings_router,
     intel_router,
     overview_router,
@@ -61,6 +63,8 @@ app.include_router(findings_router)
 app.include_router(overview_router)
 app.include_router(posture_router)
 app.include_router(intel_router)
+app.include_router(analytics_router)
+app.include_router(drift_router)
 
 
 @app.get("/api/health", tags=["system"])

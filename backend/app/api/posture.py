@@ -8,6 +8,7 @@ from app.db import get_db
 from app.ml import anomaly as ml_anomaly
 from app.models import Capture, EmailSession, Finding
 from app.posture import build_fingerprints, compute
+from app.pqc.readiness import assess as assess_pqc
 
 router = APIRouter(prefix="/api/captures", tags=["posture"])
 
@@ -55,6 +56,9 @@ def posture(capture_id: str, db: Session = Depends(get_db)) -> dict:
 
     return {
         "posture": report.serialise(),
+        # Today's posture and future (post-quantum) readiness travel together:
+        # they answer different questions about the same handshakes.
+        "pqc_readiness": assess_pqc(sessions),
         "fingerprints": [f.serialise() for f in fingerprints.values()],
         "deviations": deviating,
         "anomaly": {

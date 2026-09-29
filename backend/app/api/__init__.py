@@ -1,3 +1,5 @@
+from app.api.analytics import drift_router
+from app.api.analytics import router as analytics_router
 from app.api.captures import router as captures_router
 from app.api.findings import router as findings_router
 from app.api.intel import router as intel_router
@@ -6,7 +8,9 @@ from app.api.posture import router as posture_router
 from app.api.sessions import router as sessions_router
 
 __all__ = [
+    "analytics_router",
     "captures_router",
+    "drift_router",
     "findings_router",
     "intel_router",
     "overview_router",
