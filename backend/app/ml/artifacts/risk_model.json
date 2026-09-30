@@ -1,0 +1,297 @@
+{
+  "name": "SecureMailScope session risk classifier",
+  "version": "2026.09.30",
+  "algorithm": "Gradient-boosted decision trees (scikit-learn GradientBoostingClassifier, 250 trees, depth 3)",
+  "sklearn_version": "1.6.0",
+  "classes": [
+    "minimal",
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "features": 30,
+  "training_rows": 1600,
+  "class_counts": {
+    "minimal": 322,
+    "low": 198,
+    "medium": 118,
+    "high": 663,
+    "critical": 299
+  },
+  "labelling": "Each label is assigned from the generated session's true configuration using an analyst severity table (testbed/synthetic/corpus.py:label_for). The analysis pipeline never sees labels; the model learns from passively observed features.",
+  "evaluation": {
+    "cv_macro_f1_mean": 0.9822,
+    "cv_macro_f1_std": 0.0092,
+    "cv_folds": 5,
+    "holdout_rows": 400,
+    "holdout_accuracy": 0.985,
+    "holdout_macro_f1": 0.9795,
+    "per_class": {
+      "minimal": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 80.0
+      },
+      "low": {
+        "precision": 0.962,
+        "recall": 1.0,
+        "f1-score": 0.98,
+        "support": 50.0
+      },
+      "medium": {
+        "precision": 0.879,
+        "recall": 1.0,
+        "f1-score": 0.935,
+        "support": 29.0
+      },
+      "high": {
+        "precision": 1.0,
+        "recall": 0.964,
+        "f1-score": 0.982,
+        "support": 166.0
+      },
+      "critical": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 75.0
+      }
+    },
+    "confusion_matrix": {
+      "labels": [
+        "minimal",
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ],
+      "matrix": [
+        [
+          80,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          50,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          29,
+          0,
+          0
+        ],
+        [
+          0,
+          2,
+          4,
+          160,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          75
+        ]
+      ]
+    }
+  },
+  "feature_importance": [
+    {
+      "feature": "tls_version_rank",
+      "label": "Negotiated TLS version",
+      "gain_importance": 0.3256,
+      "permutation_importance": 0.3858
+    },
+    {
+      "feature": "cleartext_auth",
+      "label": "Credentials sent in cleartext",
+      "gain_importance": 0.2305,
+      "permutation_importance": 0.1317
+    },
+    {
+      "feature": "forward_secrecy",
+      "label": "Forward secrecy",
+      "gain_importance": 0.1623,
+      "permutation_importance": 0.133
+    },
+    {
+      "feature": "cipher_weakness_count",
+      "label": "Known cipher weaknesses",
+      "gain_importance": 0.0162,
+      "permutation_importance": 0.1788
+    },
+    {
+      "feature": "upgrade_mangled",
+      "label": "STARTTLS capability mangled",
+      "gain_importance": 0.0625,
+      "permutation_importance": 0.0549
+    },
+    {
+      "feature": "upgrade_rejected",
+      "label": "STARTTLS refused",
+      "gain_importance": 0.0431,
+      "permutation_importance": 0.0246
+    },
+    {
+      "feature": "cert_expired",
+      "label": "Certificate expired",
+      "gain_importance": 0.0362,
+      "permutation_importance": 0.0273
+    },
+    {
+      "feature": "aead",
+      "label": "AEAD cipher",
+      "gain_importance": 0.0409,
+      "permutation_importance": 0.0163
+    },
+    {
+      "feature": "cert_days_to_expiry",
+      "label": "Days until certificate expiry",
+      "gain_importance": 0.0342,
+      "permutation_importance": 0.0142
+    },
+    {
+      "feature": "cert_weak_key",
+      "label": "Weak certificate key",
+      "gain_importance": 0.0134,
+      "permutation_importance": 0.0014
+    },
+    {
+      "feature": "cert_self_signed",
+      "label": "Self-signed certificate",
+      "gain_importance": 0.0045,
+      "permutation_importance": 0.0047
+    },
+    {
+      "feature": "cipher_key_bits",
+      "label": "Cipher key size",
+      "gain_importance": 0.0004,
+      "permutation_importance": 0.0084
+    },
+    {
+      "feature": "cert_not_yet_valid",
+      "label": "Certificate not yet valid",
+      "gain_importance": 0.0044,
+      "permutation_importance": 0.0041
+    },
+    {
+      "feature": "cert_hostname_mismatch",
+      "label": "Hostname mismatch",
+      "gain_importance": 0.0031,
+      "permutation_importance": 0.0047
+    },
+    {
+      "feature": "cert_chain_invalid",
+      "label": "Chain signature invalid",
+      "gain_importance": 0.0071,
+      "permutation_importance": 0.0003
+    },
+    {
+      "feature": "cert_key_bits",
+      "label": "Certificate key size",
+      "gain_importance": 0.0049,
+      "permutation_importance": 0.0003
+    },
+    {
+      "feature": "cert_broken_signature",
+      "label": "Broken signature hash",
+      "gain_importance": 0.0044,
+      "permutation_importance": -0.0003
+    },
+    {
+      "feature": "cert_observable",
+      "label": "Certificate observable",
+      "gain_importance": 0.004,
+      "permutation_importance": 0.0
+    },
+    {
+      "feature": "tls_established",
+      "label": "TLS established",
+      "gain_importance": 0.0009,
+      "permutation_importance": 0.0
+    },
+    {
+      "feature": "cleartext_mail",
+      "label": "Mail data sent in cleartext",
+      "gain_importance": 0.0009,
+      "permutation_importance": 0.0
+    },
+    {
+      "feature": "upgrade_requested",
+      "label": "STARTTLS requested",
+      "gain_importance": 0.0005,
+      "permutation_importance": 0.0
+    },
+    {
+      "feature": "is_smtp",
+      "label": "Protocol is SMTP",
+      "gain_importance": 0.0,
+      "permutation_importance": 0.0
+    },
+    {
+      "feature": "is_imap",
+      "label": "Protocol is IMAP",
+      "gain_importance": 0.0,
+      "permutation_importance": 0.0
+    },
+    {
+      "feature": "is_pop3",
+      "label": "Protocol is POP3",
+      "gain_importance": 0.0,
+      "permutation_importance": 0.0
+    },
+    {
+      "feature": "implicit_tls_port",
+      "label": "Implicit-TLS port (465/993/995)",
+      "gain_importance": 0.0,
+      "permutation_importance": 0.0
+    },
+    {
+      "feature": "implicit_tls",
+      "label": "Implicit TLS used",
+      "gain_importance": 0.0,
+      "permutation_importance": 0.0
+    },
+    {
+      "feature": "pqc_offered",
+      "label": "Client offered PQC",
+      "gain_importance": 0.0,
+      "permutation_importance": 0.0
+    },
+    {
+      "feature": "pqc_selected",
+      "label": "Server selected PQC",
+      "gain_importance": 0.0,
+      "permutation_importance": 0.0
+    },
+    {
+      "feature": "upgrade_advertised",
+      "label": "STARTTLS advertised",
+      "gain_importance": 0.0,
+      "permutation_importance": 0.0
+    },
+    {
+      "feature": "cert_chain_incomplete",
+      "label": "Incomplete chain",
+      "gain_importance": 0.0,
+      "permutation_importance": 0.0
+    }
+  ],
+  "explanation_method": "Exact Shapley values over risk-factor groups. Each applicable group (e.g. certificate validity, cipher strength, cleartext credentials) is reset to a consistent healthy state across every coalition; attributions sum exactly to the session's expected severity above its own healthy baseline.",
+  "limitations": [
+    "Trained on synthetic sessions from the SecureMailScope lab generator. Accuracy on held-out synthetic data does not transfer one-to-one to production traffic.",
+    "The classifier ranks and contextualises. Every verdict still comes from a deterministic, standards-cited rule.",
+    "Sessions whose evidence is incomplete are not classified."
+  ]
+}

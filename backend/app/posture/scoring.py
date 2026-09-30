@@ -286,6 +286,7 @@ def _certificate_score(sessions: list[EmailSession]) -> DimensionScore:
         "expired": ("expired at capture time", 100),
         "not_yet_valid": ("not yet valid at capture time", 100),
         "broken_signature": ("signed with a broken hash", 60),
+        "chain_invalid": ("chain signatures do not verify", 60),
         "weak_key": ("public key below minimum strength", 60),
         "hostname_mismatch": ("does not cover the requested hostname", 50),
         "self_signed": ("self-signed", 30),
@@ -326,8 +327,9 @@ def _certificate_score(sessions: list[EmailSession]) -> DimensionScore:
         weight=0.10, standard="CA/Browser Forum Baseline Requirements, RFC 5280",
         detail=(
             "Validity window, key strength, signature hash, hostname and chain "
-            "completeness of each observed leaf, evaluated at the capture's own time. "
-            "Chain trust needs the enterprise trust store and is not scored."
+            "completeness of each observed leaf, plus chain signature verification, "
+            "evaluated at the capture's own time. A private root missing from the trust "
+            "store is reported but not penalised."
         ),
         contributors=contributors,
     )
@@ -399,6 +401,7 @@ _DIMENSION_CATEGORIES = {
         "certificate_hostname_mismatch",
         "certificate_weak_key",
         "certificate_weak_signature",
+        "certificate_chain_invalid",
         "certificate_self_signed",
         "certificate_chain_incomplete",
     },

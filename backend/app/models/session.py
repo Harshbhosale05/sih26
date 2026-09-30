@@ -90,6 +90,13 @@ class EmailSession(Base):
     anomaly_attribution: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     is_anomalous: Mapped[bool] = mapped_column(Boolean, default=False)
 
+    # Supervised risk classification (app.ml.risk). Context for triage and
+    # ranking; verdicts stay with the deterministic rules.
+    risk_class: Mapped[str | None] = mapped_column(String(16), nullable=True, index=True)
+    risk_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    risk_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    risk_detail: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+
     # Evidence quality. These gate every verdict made about this session.
     has_gaps: Mapped[bool] = mapped_column(Boolean, default=False)
     session_complete: Mapped[bool] = mapped_column(Boolean, default=True)

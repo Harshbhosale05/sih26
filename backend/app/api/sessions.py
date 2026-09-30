@@ -55,6 +55,12 @@ class SessionSummary(BaseModel):
     anomaly_score: float | None = None
     anomaly_attribution: list | None = None
     is_anomalous: bool = False
+    risk_class: str | None = None
+    risk_score: float | None = None
+    risk_confidence: float | None = None
+    start_time: float | None = None
+    end_time: float | None = None
+    stream_index: int | None = None
 
     @classmethod
     def of(cls, row: EmailSession) -> "SessionSummary":
@@ -99,6 +105,12 @@ class SessionSummary(BaseModel):
             anomaly_score=row.anomaly_score,
             anomaly_attribution=row.anomaly_attribution,
             is_anomalous=row.is_anomalous,
+            risk_class=row.risk_class,
+            risk_score=row.risk_score,
+            risk_confidence=row.risk_confidence,
+            start_time=row.start_time,
+            end_time=row.end_time,
+            stream_index=row.stream_index,
         )
 
 
@@ -106,6 +118,7 @@ class SessionDetail(SessionSummary):
     state_transitions: list | None = None
     events: list | None = None
     tls_detail: dict | None = None
+    risk_detail: dict | None = None
 
 
 class AnalysisResult(BaseModel):
@@ -187,4 +200,5 @@ def get_session(
         state_transitions=row.state_transitions,
         events=row.events,
         tls_detail=row.tls_detail,
+        risk_detail=row.risk_detail,
     )

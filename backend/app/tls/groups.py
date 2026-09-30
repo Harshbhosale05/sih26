@@ -21,6 +21,8 @@ GROUP_NAMES: dict[int, str] = {
     0x0100: "ffdhe2048",
     0x0101: "ffdhe3072",
     0x0102: "ffdhe4096",
+    0x0103: "ffdhe6144",
+    0x0104: "ffdhe8192",
     # Hybrid post-quantum
     0x11EC: "X25519MLKEM768",
     0x11EB: "SecP256r1MLKEM768",

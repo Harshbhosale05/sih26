@@ -118,6 +118,15 @@ def session_certificate_findings(session: EmailSession) -> list[DraftFinding]:
             reason_for("collision-broken", "obsolete"),
         ))
 
+    if detail.get("chain_invalid"):
+        drafts.append(draft(
+            "certificate_chain_invalid",
+            f"The certificate chain presented by {server} does not verify: at least one "
+            "certificate is not validly signed by the certificate that follows it.",
+            detail.get("chain_trust_reason") or reason_for("verification failed"),
+            chain_links=detail.get("chain_links"),
+        ))
+
     if detail.get("self_signed"):
         drafts.append(draft(
             "certificate_self_signed",

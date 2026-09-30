@@ -40,3 +40,31 @@ def init_db() -> None:
     from app import models  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
+    _add_missing_columns()
+
+
+# Columns added after a table first shipped. create_all never alters an
+# existing table, so these are applied idempotently on start-up until the
+# schema moves to Alembic.
+_ADDED_COLUMNS = {
+    "email_sessions": {
+        "risk_class": "VARCHAR(16)",
+        "risk_score": "DOUBLE PRECISION",
+        "risk_confidence": "DOUBLE PRECISION",
+        "risk_detail": "JSONB",
+    },
+}
+
+
+def _add_missing_columns() -> None:
+    from sqlalchemy import inspect, text
+
+    inspector = inspect(engine)
+    with engine.begin() as conn:
+        for table, columns in _ADDED_COLUMNS.items():
+            if not inspector.has_table(table):
+                continue
+            existing = {c["name"] for c in inspector.get_columns(table)}
+            for name, ddl in columns.items():
+                if name not in existing:
+                    conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}"))

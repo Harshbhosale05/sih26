@@ -1,4 +1,4 @@
-.PHONY: up down build logs shell db-shell health clean test-upload web
+.PHONY: up down build logs shell db-shell health clean test-upload web corpus train validate
 
 up:
 	docker compose up -d --build
@@ -34,3 +34,17 @@ test-upload:
 
 clean:
 	docker compose down -v
+
+# Labelled corpus for the session risk classifier (pure Python, no Docker).
+corpus:
+	python3 -m testbed.synthetic.corpus --sessions 1600 --seed 7
+
+# Train the risk classifier through the production pipeline (tshark in the API image).
+# Writes backend/app/ml/artifacts/risk_model.{joblib,json}; re-run analysis afterwards.
+train: corpus
+	docker compose run --rm --no-deps -v "$(PWD)/testbed:/testbed:ro" \
+		-v "$(PWD)/backend/app/ml/artifacts:/out" api \
+		python -m app.ml.train_risk --corpus /testbed/output/corpus --out /out
+
+validate:
+	python3 scripts/validate.py

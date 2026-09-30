@@ -262,6 +262,16 @@
         "NIST SP 800-131A Rev 2"
       ]
     },
+    "certificate_chain_invalid": {
+      "severity": "HIGH",
+      "confidence": 1.0,
+      "title": "Certificate chain signature verification failed",
+      "recommendation": "Re-issue the certificate from the intended CA and deploy the exact intermediate that signed it. A chain whose signatures do not verify indicates a mis-assembled bundle or a substituted certificate \u2014 investigate before trusting this server.",
+      "standards": [
+        "RFC 5280 \u00a76.1",
+        "CA/Browser Forum Baseline Requirements"
+      ]
+    },
     "certificate_self_signed": {
       "severity": "MEDIUM",
       "confidence": 1.0,

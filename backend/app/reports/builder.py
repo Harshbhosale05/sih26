@@ -12,36 +12,40 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from app.analytics import graph, starttls
+from app.analytics.priority import prioritise
+from app.ml import risk as ml_risk
 from app.dnsx import audit as dns_audit
 from app.pqc.readiness import assess as assess_pqc
 from app.engines.tshark import extract_dns
 from app.models import Capture, EmailSession, Finding
 from app.posture import build_fingerprints, compute
 from app.pqc import build as build_cbom
+from app.remediation.planner import plan as remediation_plan
 
 SEVERITY_ORDER = ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"]
 
 # Stated in every report. These are the boundaries of what passive analysis can
 # establish, and a report that omits them overstates its own authority.
 LIMITATIONS = [
-    "This is a passive analysis of a packet capture. No mail server was contacted, "
-    "scanned or probed at any point.",
-    "TLS application data remains encrypted. Message content was never read; the "
-    "analysis covers handshakes, certificates, protocol dialogue and flow behaviour.",
-    "TLS 1.3 encrypts the Certificate message (RFC 8446 §4.4.2), so certificates "
-    "cannot be examined passively in TLS 1.3 sessions without session keys. "
-    "Certificate coverage below 100% reflects this, not a server fault.",
-    "Certificate chain trust cannot be fully validated without the enterprise trust "
-    "store, so chain results are reported as UNKNOWN rather than as failures.",
-    "A capture is a partial view. Sessions the capture could not fully observe are "
-    "reported as UNKNOWN and excluded from scoring rather than assumed secure.",
-    "Anomaly scores indicate deviation from observed norms. They are not evidence of "
-    "an attack. Every verdict in this report comes from a deterministic rule.",
-    "The posture score is SecureMailScope's own methodology, anchored to the cited "
-    "standards, with weights published in policy.json. It is not an industry "
-    "certification or rating.",
-    "Where DNS was absent from the capture, email policy (MTA-STS, DANE, DMARC) is "
-    "reported as not assessable — which is not the same as not published.",
+    "The assessment is passive. It is based solely on the evidence item; no mail server was "
+    "contacted, scanned or probed.",
+    "TLS application data was not decrypted. Message content was not examined; the analysis "
+    "covers handshakes, certificates, protocol dialogue and flow behaviour.",
+    "TLS 1.3 encrypts the Certificate message (RFC 8446 §4.4.2). Certificates in TLS 1.3 "
+    "sessions cannot be examined without session keys; certificate coverage is reduced accordingly.",
+    "Certificate chain signatures are verified from the captured data. Trust anchoring uses the "
+    "public (Mozilla) root store and any configured enterprise roots; a chain ending at a root "
+    "outside these stores is reported as an untrusted anchor rather than as invalid.",
+    "The evidence represents a partial view of the environment. Sessions that were not fully "
+    "captured are reported as undetermined and excluded from scoring.",
+    "Anomaly scores and risk classes are statistical indicators used for prioritisation. They are "
+    "not evidence of an attack, and no finding in this report depends on them.",
+    "Projected scores in the remediation plan are obtained by re-evaluating the captured sessions "
+    "as though each change had been in place. They must be confirmed by verification and re-capture.",
+    "The posture score is the method described in Appendix B, with weights defined in the "
+    "assessment policy. It is not an industry certification.",
+    "Where DNS traffic is absent from the evidence, email security policy (MTA-STS, DANE, DMARC) "
+    "is reported as not assessed, which does not indicate that the policy is absent.",
 ]
 
 
@@ -126,9 +130,24 @@ def build(
     tls_sessions = [s for s in sessions if s.tls_version]
     cert_observable = sum(1 for s in tls_sessions if s.cert_observable)
 
+    dependency = graph.build(sessions, findings)
+    ranked = prioritise(findings, sessions, dependency["blast_radius"])
+    risk_results = {
+        s.ref: ml_risk.RiskResult(session_ref=s.ref, risk_class=s.risk_class,
+                                  confidence=s.risk_confidence or 0, score=s.risk_score or 0,
+                                  probabilities={})
+        for s in sessions if s.risk_class
+    }
+    try:
+        plan = remediation_plan(capture, sessions, findings)
+    except Exception:  # noqa: BLE001 - a report must render without the plan
+        plan = None
+
     return {
         "report": {
             "title": "Email Cryptographic Security Posture Assessment",
+            "report_id": f"SMS-{capture.ref}-{datetime.now(timezone.utc):%Y%m%d}",
+            "version": "1.0",
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "tool": "SecureMailScope 0.1.0",
             "problem_statement": "SIH26159 — NTRO",
@@ -217,8 +236,97 @@ def build(
         "pqc": build_cbom(capture, sessions)["securemailscope"],
         "pqc_readiness": assess_pqc(sessions),
         "starttls": _starttls_section(sessions),
-        "blast_radius": [
-            r for r in graph.build(sessions, findings)["blast_radius"] if r["kind"] == "finding"
-        ][:6],
+        "blast_radius": [r for r in dependency["blast_radius"] if r["kind"] == "finding"][:6],
+        "ai_risk": {
+            "index": ml_risk.capture_index(risk_results),
+            "model": {k: v for k, v in ml_risk.model_card().items()
+                      if k in ("name", "algorithm", "training_rows", "evaluation", "available", "limitations")},
+            "sessions": sorted(
+                ({"ref": s.ref, "server": f"{s.server_ip}:{s.server_port}", **(s.risk_detail or {})}
+                 for s in sessions if s.risk_detail),
+                key=lambda r: -r.get("score", 0),
+            )[:12],
+        },
+        "priorities": [
+            {k: r[k] for k in ("rank", "ref", "title", "severity", "priority", "tier", "tier_label", "factors")}
+            for r in ranked if r["verdict"] == "FAIL"
+        ][:12],
+        "remediation": None if plan is None else {
+            "baseline": plan["baseline"],
+            "target": plan["target"],
+            "method": plan["method"],
+            "steps": [
+                {k: st[k] for k in ("step", "title", "owner", "effort", "servers", "score_before",
+                                     "score_after", "findings_after")}
+                | {"software": st["software"], "addresses": [a["ref"] for a in st["addresses"]],
+                   "snippets": st["playbook"]["snippets"], "verify": st["playbook"]["verify"],
+                   "standards": st["playbook"]["standards"]}
+                for st in plan["steps"]
+            ],
+        },
+        "certificates": _certificates(sessions),
+        "tls_stats": _tls_stats(sessions),
         "limitations": LIMITATIONS,
+    }
+
+
+def _certificates(sessions: list[EmailSession]) -> list[dict]:
+    """One row per observed leaf certificate, with its validation outcome."""
+    rows = []
+    for s in sessions:
+        cert = (s.tls_detail or {}).get("certificate") or {}
+        if not cert.get("observed") or not cert.get("chain"):
+            continue
+        leaf = cert["chain"][0]
+        issues = [
+            label for key, label in (
+                ("expired", "expired"), ("not_yet_valid", "not yet valid"),
+                ("expiring_soon", "expiring soon"), ("weak_key", "weak key"),
+                ("broken_signature", "weak signature hash"), ("self_signed", "self-signed"),
+                ("chain_incomplete", "incomplete chain"), ("chain_invalid", "chain signature invalid"),
+            ) if cert.get(key)
+        ]
+        if cert.get("hostname_match") is False:
+            issues.append("hostname mismatch")
+        rows.append({
+            "session": s.ref,
+            "server": f"{s.server_ip}:{s.server_port}",
+            "subject": leaf.get("subject_cn") or leaf.get("subject"),
+            "issuer": leaf.get("issuer_cn") or leaf.get("issuer"),
+            "key": f"{leaf.get('public_key_algorithm')} {leaf.get('public_key_bits')}",
+            "signature": leaf.get("signature_algorithm"),
+            "not_before": (leaf.get("not_before") or "")[:10],
+            "not_after": (leaf.get("not_after") or "")[:10],
+            "chain_length": cert.get("chain_length"),
+            "chain_trust": cert.get("chain_trust"),
+            "issues": issues,
+        })
+    return rows
+
+
+def _tls_stats(sessions: list[EmailSession]) -> dict:
+    tls = [s for s in sessions if s.tls_version]
+    suites: dict[str, dict] = {}
+    for s in tls:
+        if not s.tls_cipher_suite:
+            continue
+        entry = suites.setdefault(s.tls_cipher_suite, {
+            "suite": s.tls_cipher_suite, "sessions": 0, "versions": set(),
+            "forward_secrecy": s.tls_forward_secrecy, "aead": s.tls_aead,
+            "weaknesses": [w for w in (((s.tls_detail or {}).get("cipher_suite") or {}).get("weaknesses") or [])],
+        })
+        entry["sessions"] += 1
+        entry["versions"].add(s.tls_version)
+    email = [s for s in sessions if s.protocol]
+    return {
+        "email_sessions": len(email),
+        "tls_sessions": len(tls),
+        "servers": len({(s.server_ip, s.server_port) for s in email}),
+        "clients": len({s.client_ip for s in email}),
+        "by_version": dict(Counter(s.tls_version for s in tls)),
+        "by_group": dict(Counter(s.tls_selected_group or ("RSA key transport" if s.tls_forward_secrecy is False else "not visible") for s in tls)),
+        "suites": sorted(
+            ({**v, "versions": sorted(v["versions"])} for v in suites.values()),
+            key=lambda r: -r["sessions"],
+        ),
     }

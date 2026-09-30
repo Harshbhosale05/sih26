@@ -8,3 +8,6 @@ python-multipart==0.0.20
 cryptography==44.0.0
 scikit-learn==1.6.0
 numpy==2.2.1
+certifi==2024.12.14
+weasyprint==63.1
+joblib==1.4.2

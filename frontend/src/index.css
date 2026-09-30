@@ -2,94 +2,153 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Design tokens. Chart and chrome colours come from one validated palette;
-   dark mode is its own set of steps, not an automatic inversion. */
-:root {
-  color-scheme: light;
-  --page: 247 247 245;
-  --surface: 255 255 255;
-  --raised: 250 250 248;
-  --ink: 11 11 11;
-  --ink-2: 82 81 78;
-  --muted: 137 135 129;
-  --line: 225 224 217;
-  --accent: 42 120 214;
-  --good: 12 163 12;
-  --warn: 250 178 25;
-  --serious: 236 131 90;
-  --crit: 208 59 59;
+/* Neutral zinc surfaces, one blue accent, and a fixed severity scale shared by
+   badges, charts and graphs. Dark mode has its own steps, not an inversion. */
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 221 83% 53%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 221 83% 53%;
+    --radius: 0.5rem;
 
-  /* Categorical series, fixed order. */
-  --s1: #2a78d6;
-  --s2: #eb6834;
-  --s3: #1baf7a;
-  --s4: #eda100;
-  --s5: #e87ba4;
-  --s7: #4a3aa7;
-  --grid: #e1e0d9;
-  --axis: #898781;
-  /* Ordinal blue ramp (funnel stages): never lighter than step 250. */
-  --ord-1: #86b6ef;
-  --ord-2: #6da7ec;
-  --ord-3: #5598e7;
-  --ord-4: #3987e5;
-  --ord-5: #2a78d6;
-  --ord-6: #1c5cab;
+    --sev-critical: 0 72% 51%;
+    --sev-high: 24 94% 50%;
+    --sev-medium: 38 92% 50%;
+    --sev-low: 217 91% 60%;
+    --sev-info: 240 4% 60%;
+    --sev-ok: 152 60% 40%;
+
+    --chart-1: 221 83% 53%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 262 52% 55%;
+    --chart-4: 38 92% 50%;
+    --chart-5: 340 65% 55%;
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+
+    --grid-line: 240 5.9% 90%;
+  }
+
+  .dark {
+    --background: 240 6% 7%;
+    --foreground: 0 0% 96%;
+    --card: 240 5% 9.5%;
+    --card-foreground: 0 0% 96%;
+    --popover: 240 5% 10%;
+    --popover-foreground: 0 0% 96%;
+    --primary: 217 91% 62%;
+    --primary-foreground: 240 6% 7%;
+    --secondary: 240 4% 15%;
+    --secondary-foreground: 0 0% 96%;
+    --muted: 240 4% 14%;
+    --muted-foreground: 240 5% 62%;
+    --accent: 240 4% 15%;
+    --accent-foreground: 0 0% 96%;
+    --destructive: 0 70% 55%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 4% 17%;
+    --input: 240 4% 19%;
+    --ring: 217 91% 62%;
+
+    --sev-critical: 0 78% 60%;
+    --sev-high: 24 92% 56%;
+    --sev-medium: 40 92% 55%;
+    --sev-low: 213 94% 66%;
+    --sev-info: 240 5% 55%;
+    --sev-ok: 152 55% 48%;
+
+    --chart-1: 217 91% 62%;
+    --chart-2: 170 55% 48%;
+    --chart-3: 262 70% 70%;
+    --chart-4: 40 92% 55%;
+    --chart-5: 340 70% 62%;
+
+    --sidebar-background: 240 6% 6%;
+    --sidebar-foreground: 240 5% 80%;
+    --sidebar-primary: 217 91% 62%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 4% 13%;
+    --sidebar-accent-foreground: 0 0% 96%;
+    --sidebar-border: 240 4% 14%;
+    --sidebar-ring: 217 91% 62%;
+
+    --grid-line: 240 4% 17%;
+  }
 }
 
-.dark {
-  color-scheme: dark;
-  --page: 13 13 13;
-  --surface: 26 26 25;
-  --raised: 34 34 32;
-  --ink: 255 255 255;
-  --ink-2: 195 194 183;
-  --muted: 137 135 129;
-  --line: 44 44 42;
-  --accent: 57 135 229;
-
-  --s1: #3987e5;
-  --s2: #d95926;
-  --s3: #199e70;
-  --s4: #c98500;
-  --s5: #d55181;
-  --s7: #9085e9;
-  --grid: #2c2c2a;
-  --axis: #898781;
-  --ord-1: #184f95;
-  --ord-2: #1c5cab;
-  --ord-3: #256abf;
-  --ord-4: #2a78d6;
-  --ord-5: #3987e5;
-  --ord-6: #6da7ec;
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "cv11", "ss01";
+  }
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
 }
 
-html,
-body,
-#root {
-  min-height: 100%;
-}
-
-body {
-  @apply bg-page text-ink font-sans antialiased;
-  font-size: 14px;
-}
-
-.tabular {
-  font-variant-numeric: tabular-nums;
-}
-
-/* Recharts: keep axes and grid recessive. */
+/* Recharts: recessive grid and axes that follow the theme. */
 .recharts-cartesian-grid line {
-  stroke: var(--grid);
+  stroke: hsl(var(--grid-line));
 }
 .recharts-text {
-  fill: var(--axis);
+  fill: hsl(var(--muted-foreground));
   font-size: 11px;
 }
 .recharts-cartesian-axis-line,
 .recharts-cartesian-axis-tick-line {
-  stroke: var(--grid);
+  stroke: hsl(var(--grid-line));
+}
+
+/* React Flow: follow the theme. */
+.react-flow {
+  --xy-background-color: transparent;
+  --xy-edge-stroke: hsl(var(--muted-foreground) / 0.45);
+  --xy-minimap-background-color: hsl(var(--card));
+  --xy-controls-button-background-color: hsl(var(--card));
+  --xy-controls-button-background-color-hover: hsl(var(--accent));
+  --xy-controls-button-color: hsl(var(--foreground));
+  --xy-controls-button-border-color: hsl(var(--border));
+  --xy-attribution-background-color: transparent;
+}
+.react-flow__controls {
+  box-shadow: none;
+  border: 1px solid hsl(var(--border));
+  border-radius: 6px;
+  overflow: hidden;
+}
+.react-flow__attribution {
+  display: none;
 }
 
 ::-webkit-scrollbar {
@@ -97,7 +156,7 @@ body {
   height: 10px;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgb(var(--line));
+  background: hsl(var(--border));
   border-radius: 8px;
-  border: 2px solid rgb(var(--page));
+  border: 2px solid hsl(var(--background));
 }

@@ -12,6 +12,11 @@ RUN echo 'wireshark-common wireshark-common/install-setuid boolean false' | debc
     && apt-get install -y --no-install-recommends \
         tshark \
         ca-certificates \
+        libpango-1.0-0 \
+        libpangoft2-1.0-0 \
+        libharfbuzz-subset0 \
+        fonts-dejavu-core \
+        fonts-liberation \
     && rm -rf /var/lib/apt/lists/*
 
 # Parsers are the attack surface of this product: uploaded files are hostile input.
@@ -21,7 +26,7 @@ RUN useradd --create-home --uid 10001 smscope
 WORKDIR /app
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --default-timeout=120 --retries 10 -r requirements.txt
 
 COPY app ./app
 

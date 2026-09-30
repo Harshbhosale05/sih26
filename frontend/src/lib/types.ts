@@ -1,4 +1,5 @@
 export type Severity = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "INFO";
+export type RiskClass = "minimal" | "low" | "medium" | "high" | "critical";
 
 export interface CaptureSummary {
   capture_id: string;
@@ -272,16 +273,143 @@ export interface Session {
   tls_ja4: string | null;
   tls_ja4s: string | null;
   tls_forward_secrecy: boolean | null;
+  tls_aead: boolean | null;
   tls_pqc_offered: boolean;
   tls_pqc_selected: boolean;
+  cert_observable: boolean;
   anomaly_score: number | null;
   is_anomalous: boolean;
   baseline_deviation_score: number | null;
+  risk_class: RiskClass | null;
+  risk_score: number | null;
+  risk_confidence: number | null;
+  start_time: number | null;
+  end_time: number | null;
+  stream_index: number | null;
+}
+
+export interface ProtocolEvent {
+  kind: string;
+  frame: number;
+  timestamp: number;
+  direction: "c2s" | "s2c" | string;
+  detail: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface StateTransition {
+  from: string;
+  to: string;
+  frame: number;
+  timestamp: number;
+  trigger: string;
+}
+
+export interface CertLeaf {
+  index: number;
+  subject: string;
+  subject_cn: string | null;
+  issuer: string;
+  issuer_cn: string | null;
+  serial: string;
+  not_before: string;
+  not_after: string;
+  public_key_algorithm: string;
+  public_key_bits: number | null;
+  signature_algorithm: string;
+  san: string[];
+  is_ca: boolean;
+  fingerprint_sha256: string;
+}
+
+export interface CertificateDetail {
+  observed: boolean;
+  chain_length: number;
+  chain: CertLeaf[];
+  expired: boolean;
+  not_yet_valid: boolean;
+  days_to_expiry: number | null;
+  expiring_soon: boolean;
+  hostname_match: boolean | null;
+  checked_hostname: string | null;
+  weak_key: boolean;
+  broken_signature: boolean;
+  self_signed: boolean;
+  chain_incomplete: boolean;
+  chain_invalid?: boolean;
+  chain_trust: string;
+  chain_trust_reason: string;
+  chain_links?: { child: number; issuer: number | "trust_store"; status: string; problems: string[] }[];
+  chain_anchor?: { subject: string; source: string; fingerprint_sha256: string; presented: boolean } | null;
+  evaluated_at: string | null;
+  reasons: string[];
+}
+
+export interface TlsDetail {
+  observed?: boolean;
+  sni?: string | null;
+  alpn?: string | null;
+  ja3?: string | null;
+  ja3s?: string | null;
+  ja4?: string | null;
+  ja4s?: string | null;
+  versions_offered?: string[];
+  negotiated_version?: string | null;
+  groups_offered?: string[];
+  selected_group?: string | null;
+  pqc_groups_offered?: string[];
+  pqc_group_selected?: string | null;
+  handshake_duration_ms?: number | null;
+  cipher_suite?: {
+    code: string;
+    name: string;
+    key_exchange: string | null;
+    authentication: string | null;
+    encryption: string | null;
+    key_size: number | null;
+    mode: string | null;
+    mac_hash: string | null;
+    forward_secrecy: boolean | null;
+    aead: boolean;
+    weaknesses: string[];
+  } | null;
+  certificate?: CertificateDetail | null;
+  cert_unobservable_reason?: string | null;
+}
+
+export interface RiskDriver {
+  feature: string;
+  label: string;
+  detail?: string;
+  features?: string[];
+  impact: number;
+}
+
+export interface RiskDetail {
+  session_ref: string;
+  risk_class: RiskClass;
+  confidence: number;
+  score: number;
+  probabilities: Record<string, number>;
+  drivers: RiskDriver[];
+  baseline_severity: number | null;
+  baseline_class: RiskClass | null;
 }
 
 export interface SessionDetail extends Session {
-  state_transitions: { from: string; to: string; frame: number; timestamp: number; trigger: string }[] | null;
-  events: { kind: string; frame: number; timestamp: number; direction: string; detail: string }[] | null;
+  detection_method: string;
+  upgrade_advertised_mangled: boolean;
+  has_gaps: boolean;
+  session_complete: boolean;
+  tls_key_exchange: string | null;
+  tls_ja3: string | null;
+  cert_unobservable_reason: string | null;
+  baseline_deviations: { label: string; expected: string; observed: string }[] | null;
+  anomaly_attribution: { feature: string; value?: number; population_median?: number; deviation_mad?: number }[] | null;
+  state_transitions: StateTransition[] | null;
+  events: ProtocolEvent[] | null;
+  tls_detail: TlsDetail | null;
+  risk_detail: RiskDetail | null;
 }
 
 export interface StarttlsAnalytics {
@@ -392,4 +520,263 @@ export interface DriftCompare {
   }[];
   findings: { category: string; title: string; severity: Severity; status: string; baseline_count: number; current_count: number }[];
   method: string;
+}
+
+
+// ---------------------------------------------------------------------------
+// Intelligence, remediation and simulation
+// ---------------------------------------------------------------------------
+
+export interface RiskIndex {
+  index: number;
+  mean_score: number;
+  tail_score: number;
+  distribution: Record<RiskClass, number>;
+  sessions: number;
+  formula: string;
+}
+
+export interface ModelCard {
+  available: boolean;
+  reason?: string;
+  name?: string;
+  version?: string;
+  algorithm?: string;
+  sklearn_version?: string;
+  classes?: RiskClass[];
+  features?: number;
+  training_rows?: number;
+  class_counts?: Record<string, number>;
+  labelling?: string;
+  evaluation?: {
+    cv_macro_f1_mean: number;
+    cv_macro_f1_std: number;
+    cv_folds: number;
+    holdout_rows: number;
+    holdout_accuracy: number;
+    holdout_macro_f1: number;
+    per_class: Record<string, { precision: number; recall: number; "f1-score": number; support: number }>;
+    confusion_matrix: { labels: string[]; matrix: number[][] };
+  };
+  feature_importance?: { feature: string; label: string; gain_importance: number; permutation_importance: number }[];
+  explanation_method?: string;
+  limitations?: string[];
+}
+
+export interface RiskResponse {
+  index: RiskIndex | null;
+  sessions: (RiskDetail & {
+    ref: string;
+    protocol: string;
+    server: string;
+    client: string;
+    encryption_state: string;
+    tls_version: string | null;
+  })[];
+  unclassified: number;
+  model: ModelCard;
+}
+
+export interface PriorityFactor {
+  factor: string;
+  points: number;
+  detail: string;
+  source: string;
+}
+
+export interface Priority {
+  rank: number;
+  ref: string;
+  category: string;
+  title: string;
+  severity: Severity;
+  verdict: "PASS" | "FAIL" | "UNKNOWN";
+  session_ref: string | null;
+  priority: number;
+  tier: "P1" | "P2" | "P3" | "P4";
+  tier_label: string;
+  factors: PriorityFactor[];
+}
+
+export interface Software {
+  key: string;
+  name: string;
+  family: string;
+  version: string | null;
+  evidence: string;
+  confidence: string;
+  server: string;
+  hostname: string;
+  port: number;
+  protocol: string;
+}
+
+export interface SnippetLine {
+  op: "+" | "-" | " ";
+  text: string;
+}
+
+export interface Playbook {
+  id: string;
+  title: string;
+  summary: string;
+  owner: string;
+  effort: number;
+  effort_label: string;
+  group: string;
+  standards: string[];
+  rationale: string;
+  resolves: string[];
+  software: { key: string; name: string | null; version: string | null; evidence: string | null; specific: boolean };
+  target: { server: string | null; host: string; port: number; domain: string };
+  snippets: { file: string; lang: string; lines: SnippetLine[]; apply: string[]; note: string | null }[];
+  verify: string[];
+  expected_outcome: string;
+  caution: string | null;
+}
+
+export interface PlanStep {
+  step: number;
+  fix_id: string;
+  title: string;
+  group: string;
+  owner: string;
+  effort: number;
+  servers: string[];
+  software: { server: string; name: string; version: string | null }[];
+  addresses: { ref: string; category: string; severity: Severity; title: string }[];
+  score_before: number | null;
+  score_after: number | null;
+  score_gain: number;
+  findings_after: number;
+  severity_after: Record<string, number>;
+  risk_points_removed: number;
+  playbook: Playbook;
+}
+
+export interface RemediationPlan {
+  baseline: { score: number | null; findings: number; severity: Record<string, number> };
+  target: { score: number | null; findings: number };
+  steps: PlanStep[];
+  servers: Software[];
+  evidence_gaps: { category: string; action: string; findings: string[] }[];
+  method: string;
+}
+
+export interface SessionView {
+  encryption_state: string;
+  tls_version: string | null;
+  cipher_suite: string | null;
+  forward_secrecy: boolean | null;
+  pqc_selected: boolean;
+  cleartext_auth: boolean;
+  certificate_ok: boolean | null;
+  risk_class: RiskClass | null;
+  risk_score: number | null;
+}
+
+export interface FindingRow {
+  ref: string | null;
+  category: string;
+  severity: Severity;
+  title: string;
+  session_ref: string | null;
+  verdict: string;
+}
+
+export interface StateSummary {
+  sessions: number;
+  protected: number;
+  cleartext: number;
+  credentials_exposed: number;
+  by_state: Record<string, number>;
+  by_tls_version: Record<string, number>;
+  forward_secrecy: number;
+  pqc_selected: number;
+}
+
+export interface PqcView {
+  score: number | null;
+  level_label: string | null;
+  hndl_exposed_pct: number | null;
+  exposure: { tier: string; label: string; sessions: number; pct: number }[];
+}
+
+export interface Simulation {
+  fixes: { id: string; servers: string[] | null }[];
+  projection: true;
+  posture: { before: PostureResponse["posture"]; after: PostureResponse["posture"] };
+  risk: { before: RiskIndex | null; after: RiskIndex | null };
+  pqc: { before: PqcView; after: PqcView };
+  state: { before: StateSummary; after: StateSummary };
+  findings: {
+    before: number;
+    after: number;
+    resolved: FindingRow[];
+    remaining: FindingRow[];
+    introduced: FindingRow[];
+    by_severity_before: Record<string, number>;
+    by_severity_after: Record<string, number>;
+  };
+  sessions_changed: {
+    ref: string;
+    server: string;
+    protocol: string;
+    fixes: string[];
+    tls_profile_source: string | null;
+    before: SessionView;
+    after: SessionView;
+  }[];
+  graph: { before: GraphData; after: GraphData } | null;
+  note: string;
+  fixed_this_finding?: boolean;
+  applied_fixes?: string[];
+}
+
+export interface Trace {
+  capture: { id: string; ref: string; filename: string; sha256: string; packets: number | null };
+  finding: Explanation["finding"];
+  explanation: Explanation;
+  session: {
+    ref: string;
+    protocol: string;
+    stream_index: number;
+    client: string;
+    server: string;
+    first_frame: number;
+    last_frame: number;
+    encryption_state: string;
+    state_transitions: StateTransition[];
+    events: ProtocolEvent[];
+    tls_version: string | null;
+    tls_cipher_suite: string | null;
+    risk: RiskDetail | null;
+    wireshark_filter: string;
+  } | null;
+  priority: Priority | null;
+  software: Software | null;
+  scope: string[];
+  fixes: Playbook[];
+  evidence_action: string | null;
+  projection: Simulation | null;
+}
+
+export interface FixCatalogueEntry {
+  id: string;
+  title: string;
+  summary: string;
+  resolves: string[];
+  owner: string;
+  effort: number;
+  group: string;
+  standards: string[];
+  software: string[];
+}
+
+export interface CaptureDetail extends CaptureSummary {
+  container_format: string | null;
+  duration_seconds: number | null;
+  snaplen: number | null;
+  snaplen_truncated: boolean;
+  error_message: string | null;
 }

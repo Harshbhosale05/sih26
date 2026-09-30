@@ -15,7 +15,9 @@ from app.api import (
     findings_router,
     intel_router,
     overview_router,
+    model_router,
     posture_router,
+    remediation_router,
     sessions_router,
 )
 from app.config import get_settings
@@ -31,6 +33,14 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    # Import scikit-learn and load the risk model once, before requests
+    # arrive: concurrent first imports from worker threads can deadlock on
+    # Python's module import locks.
+    import sklearn.ensemble  # noqa: F401
+
+    from app.ml import risk as ml_risk
+
+    logger.info("risk model: %s", "loaded" if ml_risk.available() else "not trained")
     settings = get_settings()
     logger.info("SecureMailScope API %s", __version__)
     logger.info("data dir: %s", settings.data_dir)
@@ -65,6 +75,8 @@ app.include_router(posture_router)
 app.include_router(intel_router)
 app.include_router(analytics_router)
 app.include_router(drift_router)
+app.include_router(remediation_router)
+app.include_router(model_router)
 
 
 @app.get("/api/health", tags=["system"])

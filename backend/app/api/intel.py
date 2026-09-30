@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -15,6 +15,7 @@ from app.pcap import SliceError, extract, slice_path
 from app.pqc import build as build_cbom
 from app.reports import build as build_report
 from app.reports import render as render_report
+from app.reports.pdf import render_pdf
 
 router = APIRouter(prefix="/api/captures", tags=["intelligence"])
 
@@ -66,12 +67,36 @@ def report_json(capture_id: str, db: Session = Depends(get_db)) -> JSONResponse:
 
 @router.get("/{capture_id}/report.html", response_class=HTMLResponse)
 def report_html(capture_id: str, db: Session = Depends(get_db)) -> HTMLResponse:
-    """Formal assessment report. Print to PDF from the browser."""
+    """Formal assessment report (the PDF export renders this same HTML)."""
     capture, sessions = _load(capture_id, db)
     findings = list(
         db.scalars(select(Finding).where(Finding.capture_id == capture_id)).all()
     )
     return HTMLResponse(render_report(build_report(capture, sessions, findings)))
+
+
+@router.get("/{capture_id}/report.pdf")
+def report_pdf(capture_id: str, db: Session = Depends(get_db)) -> Response:
+    """Formal assessment report as PDF, rendered server-side from the HTML report."""
+    capture, sessions = _load(capture_id, db)
+    findings = list(
+        db.scalars(select(Finding).where(Finding.capture_id == capture_id)).all()
+    )
+    html = render_report(build_report(capture, sessions, findings))
+    try:
+        pdf = render_pdf(html)
+    except Exception as exc:  # noqa: BLE001 - report the renderer failure plainly
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE, f"PDF renderer unavailable: {exc}"
+        ) from exc
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{capture.ref}-report.pdf"',
+            "X-Capture-Sha256": capture.sha256,
+        },
+    )
 
 
 def _slice_response(capture: Capture, ref: str, kind: str, display_filter: str):

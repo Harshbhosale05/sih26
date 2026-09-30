@@ -8,10 +8,10 @@ time, and reporting it as one would be a false positive on any archived capture.
 Conversely a certificate valid today may have been expired during the capture.
 Forensics compares against the evidence's own clock.
 
-**Chain trust is not validated.** A capture rarely contains the enterprise trust
-store, so any claim about whether a chain is trusted would be unfounded. We
-report what the presented chain contains and mark trust UNKNOWN. That is the
-honest answer, and it is better than a confident wrong one.
+**Chain trust is validated in two separable steps** (see app.tls.chain): link
+signatures, which the captured bytes alone decide, and anchoring, which needs a
+trust store. A private root that is simply not loaded is UNTRUSTED_ANCHOR, not a
+failure -- the honest answer, better than a confident wrong one.
 """
 
 from __future__ import annotations
@@ -25,6 +25,7 @@ from cryptography import x509
 from cryptography.hazmat.primitives.asymmetric import dsa, ec, ed25519, rsa
 from cryptography.x509.oid import ExtensionOID, NameOID
 
+from app.tls.chain import validate as validate_chain
 from app.tls.records import CONTENT_HANDSHAKE, find_tls_start, parse_records
 
 logger = logging.getLogger(__name__)
@@ -101,6 +102,8 @@ class CertificateAnalysis:
     self_signed: bool = False
     chain_incomplete: bool = False
 
+    chain_validation: dict = field(default_factory=dict)
+
     reasons: list[str] = field(default_factory=list)
     checked_hostname: str | None = None
     evaluated_at: str | None = None
@@ -124,11 +127,13 @@ class CertificateAnalysis:
             "broken_signature": self.broken_signature,
             "self_signed": self.self_signed,
             "chain_incomplete": self.chain_incomplete,
-            "chain_trust": "UNKNOWN",
-            "chain_trust_reason": (
-                "Chain trust cannot be validated from a capture: the enterprise trust "
-                "store is not present in the evidence."
+            "chain_trust": self.chain_validation.get("chain_trust", "UNKNOWN"),
+            "chain_trust_reason": self.chain_validation.get(
+                "chain_trust_reason", "Chain was not evaluated."
             ),
+            "chain_invalid": self.chain_validation.get("chain_trust") == "INVALID",
+            "chain_links": self.chain_validation.get("links", []),
+            "chain_anchor": self.chain_validation.get("anchor"),
             "evaluated_at": self.evaluated_at,
             "reasons": self.reasons,
         }
@@ -338,5 +343,10 @@ def analyse(
             "Only the leaf certificate was presented; no issuer chain accompanied it, "
             "which causes validation failures on clients lacking the intermediate."
         )
+
+    # --- Chain signatures and trust anchor ---------------------------------------
+    result.chain_validation = validate_chain(parsed, capture_time)
+    if result.chain_validation.get("chain_trust") == "INVALID":
+        result.reasons.append(result.chain_validation["chain_trust_reason"])
 
     return result

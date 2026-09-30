@@ -25,6 +25,7 @@ from app.pqc import readiness_finding
 from app.flows import build_stream_pair, index_flows, signature_hint
 from app.models import Capture, CaptureStatus, EmailSession, Finding
 from app.ml import anomaly as ml_anomaly
+from app.ml import risk as ml_risk
 from app.posture import build_fingerprints, deviation_score, deviations_for
 from app.protocols import EncryptionState, analyse_stream
 
@@ -51,6 +52,7 @@ class AnalysisSummary:
     anomalies: int = 0
     anomaly_available: bool = False
     anomaly_reason: str | None = None
+    risk_classified: int = 0
     nonstandard_port_flows: int = 0
     dns_records: int = 0
     dns_domains: int = 0
@@ -79,97 +81,9 @@ def analyse_capture(db: Session, capture: Capture) -> AnalysisSummary:
         # was not a problem at the time.
         capture_time = capture.first_packet_at or capture.uploaded_at
 
-        # --- Pass 1: index every TCP flow, no payload -----------------------
-        packets = index_tcp_packets(pcap)
-        summary.total_packets = len(packets)
-        flows = index_flows(packets)
-        summary.total_flows = len(flows)
-
-        candidates = [f for f in flows.values() if f.is_candidate]
-
-        # --- Pass 1b: probe non-standard ports ------------------------------
-        # Port alone would miss an SMTP server listening somewhere unexpected,
-        # which is precisely the misconfiguration a posture assessment should
-        # report. This reads only the first data segment of each remaining
-        # flow, so it stays cheap even on a large capture.
-        others = [f for f in flows.values() if not f.is_candidate and f.bytes_s2c > 0]
-        if others:
-            openings = probe_stream_openings(pcap, [f.stream_index for f in others])
-            for flow in others:
-                opening = openings.get(flow.stream_index)
-                if opening and signature_hint(opening):
-                    flow.port_hint = signature_hint(opening)
-                    flow.is_candidate = True
-                    candidates.append(flow)
-                    summary.nonstandard_port_flows += 1
-
-        # --- Pass 2: full payload for candidate flows -----------------------
-        payloads = extract_payloads(pcap, [f.stream_index for f in candidates])
-        summary.candidate_flows = len(candidates)
-
-        counters: Counter = Counter()
-        sessions: list[EmailSession] = []
-
-        for flow in sorted(candidates, key=lambda f: f.first_frame):
-            segments = payloads.get(flow.stream_index, [])
-            if not segments:
-                continue
-
-            pair = build_stream_pair(
-                flow.stream_index, segments, flow.client_ip, flow.client_port
-            )
-            analysis = analyse_stream(pair, flow, capture_time=capture_time)
-            if analysis.protocol is None:
-                continue
-
-            prefix = _REF_PREFIX.get(analysis.protocol, "FLOW")
-            counters[prefix] += 1
-            ref = f"{prefix}-{counters[prefix]:04d}"
-
-            enc = analysis.encryption
-            state = enc.final_state if enc else EncryptionState.UNKNOWN
-
-            row = EmailSession(
-                capture_id=capture.id,
-                ref=ref,
-                stream_index=analysis.stream_index,
-                protocol=analysis.protocol,
-                detection_method=analysis.detection_method,
-                client_ip=analysis.client_ip,
-                client_port=analysis.client_port,
-                server_ip=analysis.server_ip,
-                server_port=analysis.server_port,
-                server_banner=analysis.server_banner,
-                encryption_state=state.value,
-                state_transitions=[t.serialise() for t in enc.transitions] if enc else [],
-                events=[e.serialise() for e in analysis.events],
-                upgrade_advertised=enc.upgrade_advertised if enc else False,
-                upgrade_advertised_mangled=enc.upgrade_advertised_mangled if enc else False,
-                upgrade_requested=enc.upgrade_requested if enc else False,
-                upgrade_succeeded=enc.upgrade_succeeded if enc else False,
-                tls_established=enc.tls_established if enc else False,
-                cleartext_auth_observed=enc.cleartext_auth_observed if enc else False,
-                cleartext_mail_observed=enc.cleartext_mail_observed if enc else False,
-                has_gaps=analysis.has_gaps,
-                session_complete=analysis.session_complete,
-                is_indeterminate=enc.is_indeterminate if enc else True,
-                **_tls_columns(analysis.tls),
-                first_frame=analysis.first_frame,
-                last_frame=analysis.last_frame,
-                start_time=analysis.start_time,
-                end_time=analysis.end_time,
-            )
-            sessions.append(row)
+        sessions = reconstruct_sessions(pcap, capture_time, summary, capture.id)
+        for row in sessions:
             db.add(row)
-
-            summary.by_protocol[analysis.protocol] = (
-                summary.by_protocol.get(analysis.protocol, 0) + 1
-            )
-            summary.by_state[state.value] = summary.by_state.get(state.value, 0) + 1
-            if row.is_indeterminate:
-                summary.indeterminate += 1
-            if row.cleartext_auth_observed:
-                summary.cleartext_credentials += 1
 
         summary.sessions = len(sessions)
         db.flush()  # sessions need ids before findings can reference them
@@ -202,6 +116,109 @@ def analyse_capture(db: Session, capture: Capture) -> AnalysisSummary:
     return summary
 
 
+def reconstruct_sessions(
+    pcap: Path, capture_time, summary: AnalysisSummary, capture_id: str | None = None
+) -> list[EmailSession]:
+    """Flows -> reassembled streams -> email sessions, without touching the DB.
+
+    Separated from analyse_capture so the same reconstruction feeds both the
+    persisted pipeline and offline work (risk-model training, simulation) that
+    must see sessions exactly as production would.
+    """
+    # --- Pass 1: index every TCP flow, no payload -----------------------
+    packets = index_tcp_packets(pcap)
+    summary.total_packets = len(packets)
+    flows = index_flows(packets)
+    summary.total_flows = len(flows)
+
+    candidates = [f for f in flows.values() if f.is_candidate]
+
+    # --- Pass 1b: probe non-standard ports ------------------------------
+    # Port alone would miss an SMTP server listening somewhere unexpected,
+    # which is precisely the misconfiguration a posture assessment should
+    # report. This reads only the first data segment of each remaining
+    # flow, so it stays cheap even on a large capture.
+    others = [f for f in flows.values() if not f.is_candidate and f.bytes_s2c > 0]
+    if others:
+        openings = probe_stream_openings(pcap, [f.stream_index for f in others])
+        for flow in others:
+            opening = openings.get(flow.stream_index)
+            if opening and signature_hint(opening):
+                flow.port_hint = signature_hint(opening)
+                flow.is_candidate = True
+                candidates.append(flow)
+                summary.nonstandard_port_flows += 1
+
+    # --- Pass 2: full payload for candidate flows -----------------------
+    payloads = extract_payloads(pcap, [f.stream_index for f in candidates])
+    summary.candidate_flows = len(candidates)
+
+    counters: Counter = Counter()
+    sessions: list[EmailSession] = []
+
+    for flow in sorted(candidates, key=lambda f: f.first_frame):
+        segments = payloads.get(flow.stream_index, [])
+        if not segments:
+            continue
+
+        pair = build_stream_pair(
+            flow.stream_index, segments, flow.client_ip, flow.client_port
+        )
+        analysis = analyse_stream(pair, flow, capture_time=capture_time)
+        if analysis.protocol is None:
+            continue
+
+        prefix = _REF_PREFIX.get(analysis.protocol, "FLOW")
+        counters[prefix] += 1
+        ref = f"{prefix}-{counters[prefix]:04d}"
+
+        enc = analysis.encryption
+        state = enc.final_state if enc else EncryptionState.UNKNOWN
+
+        row = EmailSession(
+            capture_id=capture_id,
+            ref=ref,
+            stream_index=analysis.stream_index,
+            protocol=analysis.protocol,
+            detection_method=analysis.detection_method,
+            client_ip=analysis.client_ip,
+            client_port=analysis.client_port,
+            server_ip=analysis.server_ip,
+            server_port=analysis.server_port,
+            server_banner=analysis.server_banner,
+            encryption_state=state.value,
+            state_transitions=[t.serialise() for t in enc.transitions] if enc else [],
+            events=[e.serialise() for e in analysis.events],
+            upgrade_advertised=enc.upgrade_advertised if enc else False,
+            upgrade_advertised_mangled=enc.upgrade_advertised_mangled if enc else False,
+            upgrade_requested=enc.upgrade_requested if enc else False,
+            upgrade_succeeded=enc.upgrade_succeeded if enc else False,
+            tls_established=enc.tls_established if enc else False,
+            cleartext_auth_observed=enc.cleartext_auth_observed if enc else False,
+            cleartext_mail_observed=enc.cleartext_mail_observed if enc else False,
+            has_gaps=analysis.has_gaps,
+            session_complete=analysis.session_complete,
+            is_indeterminate=enc.is_indeterminate if enc else True,
+            **_tls_columns(analysis.tls),
+            first_frame=analysis.first_frame,
+            last_frame=analysis.last_frame,
+            start_time=analysis.start_time,
+            end_time=analysis.end_time,
+        )
+        sessions.append(row)
+
+        summary.by_protocol[analysis.protocol] = (
+            summary.by_protocol.get(analysis.protocol, 0) + 1
+        )
+        summary.by_state[state.value] = summary.by_state.get(state.value, 0) + 1
+        if row.is_indeterminate:
+            summary.indeterminate += 1
+        if row.cleartext_auth_observed:
+            summary.cleartext_credentials += 1
+
+    return sessions
+
+
 def _run_behavioural_analysis(
     sessions: list[EmailSession], summary: AnalysisSummary
 ) -> None:
@@ -230,6 +247,9 @@ def _run_behavioural_analysis(
         session.anomaly_score = result.score
         session.anomaly_attribution = result.attribution
         session.is_anomalous = result.is_outlier
+
+    # Supervised risk classification: one class, score and drivers per session.
+    summary.risk_classified = len(ml_risk.apply(sessions))
 
 
 def _tls_columns(tls) -> dict:
