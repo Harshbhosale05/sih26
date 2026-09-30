@@ -259,7 +259,7 @@ export function FindingsPage() {
   return (
     <>
       <PageHeader
-        eyebrow="Innovation 4 · Evidence-backed AI"
+        eyebrow="Evidence"
         title="Findings"
         description="Every finding opens into its evidence chain: the exact frames observed, the policy rule applied, what the ML layer adds as context, the limits of the evidence, and a filter to verify it in Wireshark."
       />

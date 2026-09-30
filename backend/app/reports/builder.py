@@ -11,7 +11,9 @@ from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 
+from app.analytics import graph, starttls
 from app.dnsx import audit as dns_audit
+from app.pqc.readiness import assess as assess_pqc
 from app.engines.tshark import extract_dns
 from app.models import Capture, EmailSession, Finding
 from app.posture import build_fingerprints, compute
@@ -92,6 +94,18 @@ def timeline(session: EmailSession) -> list[dict]:
     ]
 
 
+def _starttls_section(sessions: list[EmailSession]) -> dict:
+    data = starttls.analyse(sessions)
+    return {
+        "summary": data["summary"],
+        "funnel": data["funnel"],
+        "failure_points": [
+            {k: f[k] for k in ("key", "label", "owner", "severity", "count", "pct", "servers", "explanation")}
+            for f in data["failure_points"]
+        ],
+    }
+
+
 def build(
     capture: Capture,
     sessions: list[EmailSession],
@@ -118,6 +132,7 @@ def build(
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "tool": "SecureMailScope 0.1.0",
             "problem_statement": "SIH26159 — NTRO",
+            "classification": "CONFIDENTIAL — contains network evidence",
             "analysis_type": "Passive packet-capture analysis",
         },
         "evidence": {
@@ -200,5 +215,10 @@ def build(
         "servers": [f.serialise() for f in fingerprints.values()],
         "dns_policy": dns,
         "pqc": build_cbom(capture, sessions)["securemailscope"],
+        "pqc_readiness": assess_pqc(sessions),
+        "starttls": _starttls_section(sessions),
+        "blast_radius": [
+            r for r in graph.build(sessions, findings)["blast_radius"] if r["kind"] == "finding"
+        ][:6],
         "limitations": LIMITATIONS,
     }

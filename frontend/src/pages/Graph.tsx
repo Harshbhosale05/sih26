@@ -242,7 +242,7 @@ export function GraphPage() {
   return (
     <>
       <PageHeader
-        eyebrow="Innovation 3"
+        eyebrow="Exposure"
         title="Dependency graph & blast radius"
         description="Who depends on what. A weakness on a server reaches every client that sends mail through it, whether or not their own session tripped the rule. Select a weakness or any node to trace its reach."
       />
@@ -260,7 +260,7 @@ export function GraphPage() {
         <div className="grid gap-4 2xl:grid-cols-[1fr_380px]">
           <Card
             title="Cryptographic dependency graph"
-            subtitle={selected ? `Tracing ${selected.split(":").slice(1).join(":")} — click empty space to clear` : "Hover for details · click to trace dependencies"}
+            subtitle={selected ? `Tracing ${d.nodes.find((n) => n.id === selected)?.label ?? selected} — click empty space to clear` : "Hover for details · click to trace dependencies"}
             action={
               <div className="flex flex-wrap items-center gap-3 text-[11.5px] text-ink2">
                 {[

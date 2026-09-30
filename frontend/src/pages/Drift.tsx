@@ -177,7 +177,7 @@ export function DriftPage() {
   return (
     <>
       <PageHeader
-        eyebrow="Innovation 2"
+        eyebrow="Change tracking"
         title="Cryptographic drift"
         description="A capture is a photograph; drift is what changed between photographs. Compare any two analysed captures to see servers whose TLS behaviour moved, metrics that regressed, and findings that appeared or were resolved."
       />

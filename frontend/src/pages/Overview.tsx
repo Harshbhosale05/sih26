@@ -1,4 +1,4 @@
-import { Activity, ArrowRight, Download, FileText, GitBranch, Lock, LockOpen, ShieldQuestion } from "lucide-react";
+import { Activity, AlertOctagon, ArrowRight, Download, FileText, GitBranch, Lock, LockOpen, ShieldQuestion } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { ScoreRing } from "../components/ScoreRing";
 import { Card, ErrorState, LinkButton, Meter, PageHeader, RiskBadge, SeverityBadge, Spinner, Stat } from "../components/ui";
@@ -44,6 +44,22 @@ export function OverviewPage() {
           </>
         }
       />
+
+      {(o.findings.by_severity.CRITICAL ?? 0) > 0 && (
+        <Link
+          to="findings"
+          className="mb-4 flex items-center gap-3 rounded-xl border border-crit/40 bg-crit/10 px-4 py-3 text-[13.5px] text-ink hover:border-crit/70"
+        >
+          <AlertOctagon size={18} className="shrink-0 text-crit" />
+          <span className="flex-1">
+            <b>Action required:</b> {o.findings.by_severity.CRITICAL} critical finding
+            {o.findings.by_severity.CRITICAL > 1 ? "s" : ""} in this capture. A single critical exposure outranks the average score.
+          </span>
+          <span className="flex items-center gap-1 font-medium text-accent">
+            Review <ArrowRight size={14} />
+          </span>
+        </Link>
+      )}
 
       {/* Headline: today's posture and tomorrow's readiness, side by side. */}
       <div className="mb-6 grid gap-4 lg:grid-cols-2">

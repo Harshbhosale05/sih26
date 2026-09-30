@@ -5,6 +5,9 @@ Organisation: NTRO · Category: Software · Theme: Blockchain & Cybersecurity
 
 > A passive, evidence-driven cryptographic posture and behavioural-intelligence platform for enterprise email infrastructure. It turns raw SMTP / IMAP / POP3 packet captures into reconstructed sessions, cryptographic facts, explainable findings, per-server crypto fingerprints, prioritised remediation, and forensically traceable evidence.
 
+**Run it:** `docker compose up -d` → dashboard at http://localhost:5173, API docs at http://localhost:8000/docs.
+**Demo walkthrough and video script:** [docs/DEMO_WALKTHROUGH.md](docs/DEMO_WALKTHROUGH.md).
+
 ---
 
 ## 0. One-line architecture

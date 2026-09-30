@@ -279,16 +279,57 @@ def _certificate_score(sessions: list[EmailSession]) -> DimensionScore:
             detail=reason,
         )
 
-    # Certificate parsing itself lands with the tier-2 testbed; until then an
-    # observable certificate is recorded as observable and nothing more.
+    # Each observed leaf is scored against the same checks the certificate
+    # rules use. Chain trust is deliberately absent: it needs the relying
+    # party's trust store, so it can never cost points here.
+    penalties = {
+        "expired": ("expired at capture time", 100),
+        "not_yet_valid": ("not yet valid at capture time", 100),
+        "broken_signature": ("signed with a broken hash", 60),
+        "weak_key": ("public key below minimum strength", 60),
+        "hostname_mismatch": ("does not cover the requested hostname", 50),
+        "self_signed": ("self-signed", 30),
+        "chain_incomplete": ("incomplete chain presented", 20),
+        "expiring_soon": ("close to expiry", 10),
+    }
+    parsed = [
+        (s, (s.tls_detail or {}).get("certificate") or {})
+        for s in observable
+    ]
+    parsed = [(s, c) for s, c in parsed if c.get("observed")]
+    if not parsed:
+        return DimensionScore(
+            key="certificate", label="Certificate Security", score=None, assessed=0,
+            total=len(tls), weight=0.10, standard="CA/Browser Forum Baseline Requirements",
+            detail="Certificate bytes were present but could not be parsed as X.509.",
+        )
+
+    total = 0
+    issues: dict[str, int] = {}
+    for _, cert in parsed:
+        flags = dict(cert)
+        flags["hostname_mismatch"] = cert.get("hostname_match") is False
+        worst = max((p for k, (_, p) in penalties.items() if flags.get(k)), default=0)
+        total += 100 - worst
+        for key, (label, _) in penalties.items():
+            if flags.get(key):
+                issues[label] = issues.get(label, 0) + 1
+
+    contributors = [f"{len(parsed)} certificate(s) examined at capture time"]
+    contributors += [f"{n} {label}" for label, n in issues.items()]
+    if not issues:
+        contributors.append("No validity, key, signature or hostname problem found")
+
     return DimensionScore(
-        key="certificate", label="Certificate Security", score=None,
-        assessed=0, total=len(tls), weight=0.10,
-        standard="CA/Browser Forum Baseline Requirements",
+        key="certificate", label="Certificate Security",
+        score=round(total / len(parsed)), assessed=len(parsed), total=len(tls),
+        weight=0.10, standard="CA/Browser Forum Baseline Requirements, RFC 5280",
         detail=(
-            f"{len(observable)} certificate(s) are present in the capture but X.509 "
-            "analysis is not yet implemented (pending tier-2 testbed)."
+            "Validity window, key strength, signature hash, hostname and chain "
+            "completeness of each observed leaf, evaluated at the capture's own time. "
+            "Chain trust needs the enterprise trust store and is not scored."
         ),
+        contributors=contributors,
     )
 
 
@@ -351,6 +392,16 @@ _DIMENSION_CATEGORIES = {
     "crypto": {"weak_cipher_suite"},
     "pfs": {"no_forward_secrecy"},
     "behaviour": {"starttls_stripping"},
+    "certificate": {
+        "certificate_expired",
+        "certificate_not_yet_valid",
+        "certificate_expiring_soon",
+        "certificate_hostname_mismatch",
+        "certificate_weak_key",
+        "certificate_weak_signature",
+        "certificate_self_signed",
+        "certificate_chain_incomplete",
+    },
 }
 
 # Ceiling imposed on a dimension by the worst finding affecting it.

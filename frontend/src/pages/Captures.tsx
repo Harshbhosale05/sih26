@@ -69,7 +69,7 @@ export function CapturesPage() {
   return (
     <>
       <PageHeader
-        eyebrow="Evidence"
+        eyebrow="Evidence intake"
         title="Captures"
         description="Upload a PCAP or PCAPNG of SMTP, IMAP or POP3 traffic. It is hashed on arrival, analysed passively, and every finding stays traceable to its frames."
       />

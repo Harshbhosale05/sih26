@@ -44,6 +44,7 @@ _DIMENSION_LABELS = {
     "crypto": "Cryptographic Strength",
     "pfs": "Forward Secrecy",
     "behaviour": "Behavioural Consistency",
+    "certificate": "Certificate Security",
 }
 
 

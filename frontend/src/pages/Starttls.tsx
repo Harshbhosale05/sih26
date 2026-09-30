@@ -24,7 +24,7 @@ export function StarttlsPage() {
   return (
     <>
       <PageHeader
-        eyebrow="Innovation 5"
+        eyebrow="Transport security"
         title="STARTTLS failure points & adoption"
         description="An opportunistic upgrade is a chain of steps, each owned by someone different. Every plaintext-start session is placed at the first step it failed, then aggregated per server, per protocol and over the capture's timeline."
       />
@@ -105,6 +105,13 @@ export function StarttlsPage() {
           </div>
 
           <Card className="mb-4" title="Behaviour over the capture's timeline" subtitle="Sessions per time bucket, split by outcome">
+            {d.timeline.length < 2 ? (
+              <p className="text-[13px] text-ink2">
+                All {d.summary.starttls_eligible} session(s) fall in a single moment of this capture, so there is no timeline to
+                plot. Longer captures show here how upgrade behaviour changes over time — for example a stripping device
+                appearing part-way through.
+              </p>
+            ) : (
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={d.timeline} margin={{ top: 8, right: 8, bottom: 0, left: -16 }} barCategoryGap="20%">
@@ -136,6 +143,7 @@ export function StarttlsPage() {
                 </BarChart>
               </ResponsiveContainer>
             </div>
+            )}
           </Card>
 
           <div className="grid gap-4 xl:grid-cols-[2fr_1fr]">

@@ -33,7 +33,7 @@ export function PosturePage() {
   return (
     <>
       <PageHeader
-        eyebrow="Innovation 1"
+        eyebrow="Assessment"
         title="Cryptographic posture & PQC readiness"
         description="Two questions about the same handshakes: how secure is this traffic against today's attacker, and how much of it survives one who records it now and decrypts it with a quantum computer later."
       />
