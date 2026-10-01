@@ -28,6 +28,11 @@ services:
       MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES:-2147483648}
       TOOL_TIMEOUT_SECONDS: ${TOOL_TIMEOUT_SECONDS:-300}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
+      # One BLAS/OpenMP thread per request thread: avoids native thread-pool
+      # deadlocks when FastAPI runs several scikit-learn calls concurrently.
+      OMP_NUM_THREADS: "1"
+      OPENBLAS_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
     volumes:
       - ./backend/app:/app/app:ro
       - capture-data:/data

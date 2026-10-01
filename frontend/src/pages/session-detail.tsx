@@ -1,14 +1,13 @@
-import { ArrowRight, Download, ShieldQuestion } from "lucide-react";
+import { ArrowRight, Download } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 
 import {
   CodeLine,
   Empty,
   ErrorState,
-  KeyValue,
   Loading,
-  PageHeader,
   Panel,
+  Properties,
   RiskBadge,
   SeverityBadge,
   StateBadge,
@@ -22,10 +21,9 @@ import { RiskDrivers } from "@/components/viz/risk-drivers";
 import { StatePath } from "@/components/viz/state-path";
 import { sessionPcapUrl, useFindings, useSession } from "@/lib/api";
 
-function Yes({ v, good = true }: { v: boolean | null | undefined; good?: boolean }) {
+function YesNo({ v }: { v: boolean | null | undefined }) {
   if (v == null) return <span className="text-muted-foreground">—</span>;
-  const ok = good ? v : !v;
-  return <span className={ok ? "text-sev-ok" : "text-sev-critical"}>{v ? "yes" : "no"}</span>;
+  return <span className={v ? "" : "text-sev-critical"}>{v ? "Yes" : "No"}</span>;
 }
 
 export function SessionDetailPage() {
@@ -39,193 +37,236 @@ export function SessionDetailPage() {
   const tls = s.tls_detail ?? {};
   const suite = tls.cipher_suite;
   const cert = tls.certificate;
-  const related = (findings.data ?? []).filter((f) => f.session_ref === s.ref || (f.evidence as { affected_session?: string } | null)?.affected_session === s.ref);
+  const related = (findings.data ?? []).filter(
+    (f) => f.session_ref === s.ref || (f.evidence as { affected_session?: string } | null)?.affected_session === s.ref,
+  );
+  const offered13 = tls.versions_offered?.includes("TLS 1.3");
 
   return (
-    <div className="space-y-5">
-      <PageHeader
-        eyebrow={`${s.protocol} session · stream ${s.stream_index ?? "—"} · frames ${s.first_frame}–${s.last_frame}`}
-        title={
-          <span className="flex flex-wrap items-center gap-2 font-mono">
-            {s.ref}
-            <StateBadge state={s.encryption_state} className="font-sans" />
-            <RiskBadge risk={s.risk_class} score={s.risk_score} className="font-sans" />
-          </span>
-        }
-        description={
-          <span className="font-mono text-xs">
+    <>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0 space-y-2">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Link to={`/c/${captureId}/sessions`} className="hover:text-foreground">
+              Sessions
+            </Link>
+            <span>/</span>
+            <span className="font-mono">{s.ref}</span>
+          </div>
+          <h1 className="font-mono text-lg font-semibold tracking-tight">
             {s.client_ip}:{s.client_port} → {s.server_ip}:{s.server_port}
-            {s.server_banner ? ` · “${s.server_banner}”` : ""}
-          </span>
-        }
-        actions={
-          <Button asChild size="sm" variant="outline">
-            <a href={sessionPcapUrl(captureId!, s.ref)}>
-              <Download className="size-3.5" /> Session .pcapng
-            </a>
-          </Button>
-        }
-      />
+          </h1>
+          <div className="flex flex-wrap items-center gap-2">
+            <StateBadge state={s.encryption_state} />
+            <RiskBadge risk={s.risk_class} score={s.risk_score} />
+            <span className="text-xs text-muted-foreground">
+              {s.protocol} · stream {s.stream_index} · frames {s.first_frame}–{s.last_frame}
+            </span>
+          </div>
+        </div>
+        <Button asChild size="sm" variant="outline" className="h-8">
+          <a href={sessionPcapUrl(captureId!, s.ref)}>
+            <Download className="size-3.5" /> Session capture
+          </a>
+        </Button>
+      </div>
 
-      <Panel title="Encryption state path">
-        <StatePath transitions={s.state_transitions ?? []} finalState={s.encryption_state} />
-      </Panel>
-
-      <Tabs defaultValue="conversation">
-        <TabsList>
-          <TabsTrigger value="conversation">Conversation</TabsTrigger>
-          <TabsTrigger value="tls">TLS handshake</TabsTrigger>
-          <TabsTrigger value="certificate">Certificate chain</TabsTrigger>
-          <TabsTrigger value="risk">Risk & behaviour</TabsTrigger>
-          <TabsTrigger value="findings">Findings ({related.length})</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="conversation">
-          <Panel title="Reconstructed conversation" description="Reassembled from TCP segments with frame provenance for every line. Encrypted records are counted, never read.">
-            <Ladder
-              events={s.events ?? []}
-              transitions={s.state_transitions ?? []}
-              client={`${s.client_ip}:${s.client_port}`}
-              server={`${s.server_ip}:${s.server_port}`}
-              firstFrame={s.first_frame}
-              lastFrame={s.last_frame}
-              implicit={s.encryption_state === "IMPLICIT_TLS"}
-              highlight={related.flatMap((f) => f.evidence_frames ?? [])}
-              tls={{ version: s.tls_version, cipher: s.tls_cipher_suite, offered: tls.versions_offered }}
-            />
-            <div className="mt-3">
-              <CodeLine>{s.wireshark_filter}</CodeLine>
-            </div>
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="min-w-0 space-y-4">
+          <Panel title="Encryption state">
+            <StatePath transitions={s.state_transitions ?? []} finalState={s.encryption_state} />
           </Panel>
-        </TabsContent>
+          <Tabs defaultValue="conversation">
+            <TabsList>
+              <TabsTrigger value="conversation">Conversation</TabsTrigger>
+              <TabsTrigger value="handshake">TLS handshake</TabsTrigger>
+              <TabsTrigger value="certificate">Certificate</TabsTrigger>
+              <TabsTrigger value="risk">Risk</TabsTrigger>
+              <TabsTrigger value="findings">Findings ({related.length})</TabsTrigger>
+            </TabsList>
 
-        <TabsContent value="tls" className="space-y-4">
-          {!s.tls_version ? (
-            <Empty title="No TLS handshake in this session">The session never started TLS, so there is no negotiation to analyse.</Empty>
-          ) : (
-            <div className="grid gap-4 lg:grid-cols-2">
-              <Panel title="Negotiated parameters">
-                <KeyValue
-                  rows={[
-                    ["Version", <span className="font-medium">{s.tls_version}</span>],
-                    ["Offered versions", tls.versions_offered?.join(", ") ?? "—"],
-                    ["Cipher suite", <span className="font-mono text-xs">{suite?.name ?? s.tls_cipher_suite}</span>],
-                    ["Key exchange", suite?.key_exchange ?? (s.tls_version === "TLS 1.3" ? `(EC)DHE · ${s.tls_selected_group ?? "group n/a"}` : "—")],
-                    ["Authentication", suite?.authentication ?? "from certificate"],
-                    ["Encryption", suite ? `${suite.encryption ?? "—"} ${suite.key_size ?? ""} ${suite.mode ?? ""}` : "—"],
-                    ["MAC / PRF hash", suite?.mac_hash ?? "—"],
-                    ["Forward secrecy", <Yes v={s.tls_forward_secrecy} />],
-                    ["AEAD", <Yes v={s.tls_aead} />],
-                    ["Selected group", s.tls_selected_group ?? "—"],
-                    ["Groups offered", tls.groups_offered?.join(", ") ?? "—"],
-                    ["Hybrid PQC", s.tls_pqc_selected ? <span className="text-sev-ok">selected ({tls.pqc_group_selected})</span> : s.tls_pqc_offered ? <span className="text-sev-medium">offered by client, not selected</span> : "not offered"],
-                    ["Handshake", tls.handshake_duration_ms != null ? `${tls.handshake_duration_ms.toFixed(2)} ms` : "—"],
-                  ]}
+            <TabsContent value="conversation" className="mt-4">
+              <Panel title="Protocol conversation" info="Reassembled from TCP segments with the source frame of every line. Encrypted records are counted, not read.">
+                <Ladder
+                  events={s.events ?? []}
+                  transitions={s.state_transitions ?? []}
+                  client={`${s.client_ip}:${s.client_port}`}
+                  server={`${s.server_ip}:${s.server_port}`}
+                  firstFrame={s.first_frame}
+                  lastFrame={s.last_frame}
+                  implicit={s.encryption_state === "IMPLICIT_TLS"}
+                  highlight={related.flatMap((f) => f.evidence_frames ?? [])}
+                  tls={{ version: s.tls_version, cipher: s.tls_cipher_suite, offered: tls.versions_offered }}
                 />
-                {suite?.weaknesses && suite.weaknesses.length > 0 && (
-                  <div className="mt-4 space-y-1.5">
-                    {suite.weaknesses.map((w) => (
-                      <div key={w} className="rounded-md border border-sev-high/40 bg-sev-high/5 p-2 text-xs">
-                        {w}
-                      </div>
-                    ))}
+              </Panel>
+            </TabsContent>
+
+            <TabsContent value="handshake" className="mt-4 space-y-4">
+              {!s.tls_version ? (
+                <Panel>
+                  <Empty title="No TLS handshake">This session never started TLS.</Empty>
+                </Panel>
+              ) : (
+                <>
+                  {offered13 && s.tls_version !== "TLS 1.3" && (
+                    <div className="rounded-lg border border-sev-medium/40 px-3 py-2.5 text-sm">
+                      The client offered <b>TLS 1.3</b>, but the server selected <b>{s.tls_version}</b>. Hybrid post-quantum key exchange requires TLS 1.3.
+                    </div>
+                  )}
+                  <div className="grid gap-4 lg:grid-cols-2">
+                    <Panel title="Negotiated">
+                      <Properties
+                        rows={[
+                          ["Version", s.tls_version],
+                          ["Offered versions", tls.versions_offered?.join(", ") ?? "—"],
+                          ["Cipher suite", <span className="font-mono text-xs">{suite?.name ?? s.tls_cipher_suite}</span>],
+                          ["Key exchange", suite?.key_exchange ?? (s.tls_version === "TLS 1.3" ? "(EC)DHE" : "—")],
+                          ["Group", s.tls_selected_group ?? "Not visible in TLS ≤ 1.2 ServerHello"],
+                          ["Authentication", suite?.authentication ?? "Certificate"],
+                          ["Encryption", suite ? `${suite.encryption ?? "—"} ${suite.key_size ?? ""} ${suite.mode ?? ""}` : "—"],
+                          ["Forward secrecy", <YesNo v={s.tls_forward_secrecy} />],
+                          ["AEAD", <YesNo v={s.tls_aead} />],
+                          ["Handshake time", tls.handshake_duration_ms != null ? `${tls.handshake_duration_ms.toFixed(2)} ms` : "—"],
+                        ]}
+                      />
+                    </Panel>
+                    <Panel title="Offered by the client">
+                      <Properties
+                        rows={[
+                          ["Key exchange groups", (
+                            <div className="flex flex-wrap gap-1">
+                              {(tls.groups_offered ?? []).map((g) => (
+                                <Tag key={g} className={/mlkem|kyber/i.test(g) ? "border-sev-ok/50 text-sev-ok" : ""}>
+                                  {g}
+                                </Tag>
+                              ))}
+                            </div>
+                          )],
+                          ["Hybrid PQC", s.tls_pqc_selected ? "Selected" : s.tls_pqc_offered ? "Offered, not selected" : "Not offered"],
+                          ["SNI", s.tls_sni ?? "—"],
+                          ["ALPN", tls.alpn ?? "—"],
+                          ["JA3", <Tag>{s.tls_ja3 ?? "—"}</Tag>],
+                          ["JA4", <Tag>{s.tls_ja4 ?? "—"}</Tag>],
+                          ["JA4S", <Tag>{s.tls_ja4s ?? "—"}</Tag>],
+                        ]}
+                      />
+                    </Panel>
                   </div>
+                  {suite?.weaknesses && suite.weaknesses.length > 0 && (
+                    <Panel title="Cipher suite weaknesses">
+                      <ul className="list-disc space-y-1 pl-4 text-sm">
+                        {suite.weaknesses.map((w) => (
+                          <li key={w}>{w}</li>
+                        ))}
+                      </ul>
+                    </Panel>
+                  )}
+                </>
+              )}
+            </TabsContent>
+
+            <TabsContent value="certificate" className="mt-4">
+              {cert?.observed ? (
+                <Panel title="Presented chain" description={`Evaluated at capture time, ${cert.evaluated_at?.slice(0, 10)}`}>
+                  <CertChain cert={cert} />
+                </Panel>
+              ) : (
+                <Panel>
+                  <Empty title="Certificate not observable">{s.cert_unobservable_reason ?? "No certificate was present in the captured data."}</Empty>
+                </Panel>
+              )}
+            </TabsContent>
+
+            <TabsContent value="risk" className="mt-4 space-y-4">
+              {s.risk_detail ? (
+                <Panel title="Risk classification" info="Shapley attribution over risk-factor groups, from the session's healthy baseline to the model output.">
+                  <RiskDrivers risk={s.risk_detail} />
+                </Panel>
+              ) : (
+                <Panel>
+                  <Empty title="Not classified">Sessions with incomplete evidence are not classified.</Empty>
+                </Panel>
+              )}
+              <div className="grid gap-4 lg:grid-cols-2">
+                <Panel title="Deviation from server baseline">
+                  {s.baseline_deviations?.length ? (
+                    <div className="space-y-2 text-sm">
+                      {s.baseline_deviations.map((d) => (
+                        <div key={d.label}>
+                          <div>{d.label}</div>
+                          <div className="font-mono text-xs text-muted-foreground">
+                            expected {d.expected} → observed {d.observed}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-sm text-muted-foreground">Consistent with the server's established behaviour, or no baseline available.</div>
+                  )}
+                </Panel>
+                <Panel title="Anomaly detection" info="Isolation Forest over session features. Indicates deviation, not an attack.">
+                  {s.anomaly_score != null ? (
+                    <div className="space-y-2 text-sm">
+                      <div>
+                        Score <span className="tabular font-medium">{s.anomaly_score.toFixed(3)}</span> · {s.is_anomalous ? "Outlier" : "Inlier"}
+                      </div>
+                      {(s.anomaly_attribution ?? []).map((a) => (
+                        <div key={a.feature} className="flex justify-between text-xs">
+                          <span className="font-mono">{a.feature}</span>
+                          <span className="text-muted-foreground">
+                            {a.value} vs {a.population_median} ({a.deviation_mad}× MAD)
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-sm text-muted-foreground">Requires at least 20 sessions in the capture.</div>
+                  )}
+                </Panel>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="findings" className="mt-4">
+              <Panel flush>
+                {related.length ? (
+                  <ul className="divide-y">
+                    {related.map((f) => (
+                      <li key={f.ref}>
+                        <Link to={`/c/${captureId}/findings/${f.ref}`} className="flex items-center gap-3 px-4 py-3 hover:bg-muted/50">
+                          <SeverityBadge severity={f.severity} />
+                          <span className="flex-1 text-sm">{f.title}</span>
+                          <span className="font-mono text-xs text-muted-foreground">{f.ref}</span>
+                          <ArrowRight className="size-3.5 text-muted-foreground" />
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <Empty title="No findings reference this session" />
                 )}
               </Panel>
-              <Panel title="Identity & fingerprints" description="Standard JA3/JA3S/JA4/JA4S, comparable with other SOC tooling.">
-                <KeyValue
-                  rows={[
-                    ["SNI", s.tls_sni ? <span className="font-mono">{s.tls_sni}</span> : "—"],
-                    ["ALPN", tls.alpn ?? "—"],
-                    ["JA3", <Tag>{s.tls_ja3 ?? "—"}</Tag>],
-                    ["JA3S", <Tag>{tls.ja3s ?? "—"}</Tag>],
-                    ["JA4", <Tag>{s.tls_ja4 ?? "—"}</Tag>],
-                    ["JA4S", <Tag>{s.tls_ja4s ?? "—"}</Tag>],
-                  ]}
-                />
-              </Panel>
-            </div>
-          )}
-        </TabsContent>
+            </TabsContent>
+          </Tabs>
+        </div>
 
-        <TabsContent value="certificate">
-          {cert?.observed ? (
-            <Panel title="Presented certificate chain" description={`Validity judged at capture time (${cert.evaluated_at?.slice(0, 19).replace("T", " ")} UTC), not today.`}>
-              <CertChain cert={cert} />
-            </Panel>
-          ) : (
-            <Empty title="Certificate not observable" icon={<ShieldQuestion className="size-6" />}>
-              {s.cert_unobservable_reason ?? "No certificate was present in the captured bytes."}
-            </Empty>
-          )}
-        </TabsContent>
-
-        <TabsContent value="risk" className="space-y-4">
-          {s.risk_detail ? (
-            <Panel title="Risk classification (our model)" description="Exact Shapley attribution over risk-factor groups: bars sum from the healthy baseline to the model output.">
-              <RiskDrivers risk={s.risk_detail} />
-            </Panel>
-          ) : (
-            <Empty title="Not classified">Sessions with incomplete evidence are not classified.</Empty>
-          )}
-          <div className="grid gap-4 lg:grid-cols-2">
-            <Panel title="Deviation from this server's baseline" description="Deterministic comparison with the server's own dominant behaviour.">
-              {s.baseline_deviations?.length ? (
-                <div className="space-y-2">
-                  {s.baseline_deviations.map((d) => (
-                    <div key={d.label} className="rounded-md border p-2 text-sm">
-                      <div className="font-medium">{d.label}</div>
-                      <div className="flex items-center gap-2 font-mono text-xs text-muted-foreground">
-                        expected {d.expected} <ArrowRight className="size-3" /> <span className="text-sev-high">observed {d.observed}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-sm text-muted-foreground">Matches its server's established profile (or no baseline exists).</div>
-              )}
-            </Panel>
-            <Panel title="Isolation Forest anomaly" description="Unsupervised: how unusual this session is among its peers. Deviation, not proof of attack.">
-              {s.anomaly_score != null ? (
-                <div className="space-y-2">
-                  <div className="text-sm">
-                    Score <b className="tabular">{s.anomaly_score.toFixed(3)}</b> · {s.is_anomalous ? <span className="text-chart-3">outlier</span> : "inlier"}
-                  </div>
-                  {(s.anomaly_attribution ?? []).map((a) => (
-                    <div key={a.feature} className="flex justify-between text-xs">
-                      <span className="font-mono">{a.feature}</span>
-                      <span className="text-muted-foreground">
-                        {a.value} vs median {a.population_median} · {a.deviation_mad}× MAD
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-sm text-muted-foreground">Too few sessions in this capture for an outlier model (needs 20).</div>
-              )}
-            </Panel>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="findings">
-          <Panel title="Findings on this session">
-            {related.length ? (
-              <div className="space-y-1">
-                {related.map((f) => (
-                  <Link key={f.ref} to={`/c/${captureId}/findings/${f.ref}`} className="flex items-center gap-3 rounded-md px-2 py-2 hover:bg-muted/60">
-                    <SeverityBadge severity={f.severity} />
-                    <span className="flex-1 text-sm">{f.title}</span>
-                    <span className="font-mono text-xs text-muted-foreground">{f.ref}</span>
-                    <ArrowRight className="size-3.5 text-muted-foreground" />
-                  </Link>
-                ))}
-              </div>
-            ) : (
-              <div className="text-sm text-muted-foreground">No findings reference this session.</div>
-            )}
+        <aside className="space-y-4">
+          <Panel title="Connection">
+            <Properties
+              rows={[
+                ["Protocol", s.protocol],
+                ["Detected by", s.detection_method.replace(/_/g, " ")],
+                ["Server banner", s.server_banner ? <span className="font-mono text-xs">{s.server_banner}</span> : "—"],
+                ["STARTTLS", s.upgrade_advertised ? (s.upgrade_requested ? "Offered and used" : "Offered, not used") : "Not offered"],
+                ["Credentials", s.cleartext_auth_observed ? <span className="text-sev-critical">Sent in cleartext</span> : "Not exposed"],
+                ["Complete", <YesNo v={s.session_complete} />],
+              ]}
+            />
           </Panel>
-        </TabsContent>
-      </Tabs>
-    </div>
+          <Panel title="Wireshark filter">
+            <CodeLine>{s.wireshark_filter}</CodeLine>
+          </Panel>
+        </aside>
+      </div>
+    </>
   );
 }

@@ -1,3 +1,5 @@
+from app.api.ai import model_router as ai_model_router
+from app.api.ai import router as ai_router
 from app.api.analytics import drift_router
 from app.api.analytics import router as analytics_router
 from app.api.captures import router as captures_router
@@ -10,6 +12,8 @@ from app.api.remediation import router as remediation_router
 from app.api.sessions import router as sessions_router
 
 __all__ = [
+    "ai_model_router",
+    "ai_router",
     "analytics_router",
     "captures_router",
     "drift_router",

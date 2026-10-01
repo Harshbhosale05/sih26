@@ -117,6 +117,8 @@ export interface PqcReadiness {
   actions: { priority: number; title: string; detail: string }[];
   framing: string;
   standards: string[];
+  groups?: { group: string; pqc: boolean; offered: number; offered_pct: number; selected: number; selected_pct: number }[];
+  tls_versions?: Record<string, number>;
 }
 
 export interface PostureResponse {
@@ -779,4 +781,107 @@ export interface CaptureDetail extends CaptureSummary {
   snaplen: number | null;
   snaplen_truncated: boolean;
   error_message: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// AI-assisted analysis
+// ---------------------------------------------------------------------------
+
+export interface Brief {
+  sentences: { text: string; refs: string[]; kind: "fact" | "assessment" | "risk" | "pqc" | "anomaly" | "action" }[];
+  actions: { title: string; fix_id: string; servers: string[]; score_after: number | null; addresses: string[] }[];
+}
+
+export interface AskAnswer {
+  intent: string;
+  text: string[];
+  table: { columns: string[]; rows: string[][] } | null;
+  citations: { kind: "finding" | "session" | "server"; ref: string; label: string }[];
+  actions: { label: string; to: string }[];
+  followups: string[];
+  confidence: number;
+  entities: Record<string, unknown>;
+  alternatives: { intent: string; p: number }[];
+}
+
+export interface AttackScenario {
+  key: string;
+  title: string;
+  summary: string;
+  likelihood: number;
+  impact: number;
+  impact_label: string;
+  exposure_pct: number;
+  score: number;
+  level: "High" | "Elevated" | "Low";
+  indicators: { label: string; weight: number; observed: boolean; required: boolean; findings: string[]; contribution: number }[];
+  stages: { stage: string; description: string; techniques: { id: string; name: string; url: string }[] }[];
+  finding_refs: string[];
+  sessions: string[];
+  servers: string[];
+  mitigations: string[];
+}
+
+export interface AttackPaths {
+  scenarios: AttackScenario[];
+  techniques: { id: string; name: string; url: string }[];
+  method: string;
+}
+
+export interface FingerprintClusters {
+  available: boolean;
+  reason?: string;
+  sessions?: number;
+  cluster_count?: number;
+  novel_count?: number;
+  clusters: {
+    id: string;
+    size: number;
+    share_pct: number;
+    novel: boolean;
+    ja4: string;
+    ja3: string | null;
+    clients: string[];
+    servers: string[];
+    sessions: string[];
+    profile: { max_version: string | null; offers_pqc: boolean; cipher_count: number; extension_count: number; groups: string[] };
+  }[];
+  points: { ref: string; x: number; y: number; cluster: string; client: string; ja4: string; novel: boolean }[];
+  features: string[];
+  method?: string;
+}
+
+export interface QuantumForecast {
+  shelf_life_years: number;
+  captured_year: number;
+  confidential_until: number;
+  migration_years: number;
+  migration_steps: { step: string; years: number }[];
+  tiers: { tier: string; label: string; sessions: number; pct: number; readable: string }[];
+  scenarios: {
+    key: string;
+    label: string;
+    year: number;
+    basis: string;
+    years_from_today: number;
+    x_plus_y: number;
+    mosca_verdict: "Act now" | "Within margin";
+    mosca_margin_years: number;
+    captured_traffic_at_risk: boolean;
+    exposed_sessions: number;
+    exposed_pct: number;
+    years_of_exposure: number;
+  }[];
+  summary: string;
+  method: string;
+  sources: string[];
+}
+
+export interface AssistantCard {
+  algorithm: string;
+  intents: string[];
+  training_examples: number;
+  cv_accuracy: number;
+  entities: string[];
+  examples: string[];
 }

@@ -14,7 +14,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { AlertOctagon, Globe, KeyRound, Laptop, Server } from "lucide-react";
-import { memo, useEffect, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 
 import { riskColor } from "@/lib/format";
 import type { GraphData, GraphNode } from "@/lib/types";
@@ -77,10 +77,10 @@ const InfraNode = memo(function InfraNode({ data }: NodeProps<Node<InfraNodeData
           <Icon className="size-3.5" />
         </div>
         <div className="min-w-0 flex-1 leading-tight">
-          <div className={cn("truncate text-[12px] font-medium", node.type !== "weakness" && "font-mono", change === "resolved" && "line-through")}>
+          <div className={cn("truncate text-[12.5px] font-medium", node.type !== "weakness" && "font-mono", change === "resolved" && "line-through")}>
             {node.label}
           </div>
-          <div className="truncate text-[10.5px] text-muted-foreground">{metricLine(node)}</div>
+          <div className="truncate text-[11px] text-muted-foreground">{metricLine(node)}</div>
         </div>
       </div>
       {change && (
@@ -219,20 +219,28 @@ function TopologyInner({ graph, compare, height = 520, selectedId, onSelect, cla
     return { nodes: rfNodes, edges: rfEdges };
   }, [graph, compare, hover, selectedId]);
 
+  const wrap = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    const t = setTimeout(() => flow.fitView({ padding: 0.12, duration: 300 }), 30);
-    return () => clearTimeout(t);
+    const fit = () => flow.fitView({ padding: 0.14, maxZoom: 1.05, duration: 200 });
+    const t = setTimeout(fit, 60);
+    const ro = new ResizeObserver(() => fit());
+    if (wrap.current) ro.observe(wrap.current);
+    return () => {
+      clearTimeout(t);
+      ro.disconnect();
+    };
   }, [graph.nodes.length, compare?.nodes.length, flow]);
 
   return (
-    <div className={cn("relative overflow-hidden rounded-lg border bg-muted/20", className)} style={{ height }}>
+    <div className={cn("overflow-hidden rounded-md border", className)}>
+    <div ref={wrap} className="relative bg-muted/20" style={{ height }}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}
         fitView
-        fitViewOptions={{ padding: 0.12 }}
-        minZoom={0.15}
+        fitViewOptions={{ padding: 0.14, maxZoom: 1.05 }}
+        minZoom={0.2}
         maxZoom={1.8}
         nodesDraggable={false}
         nodesConnectable={false}
@@ -245,6 +253,7 @@ function TopologyInner({ graph, compare, height = 520, selectedId, onSelect, cla
         <Background gap={20} size={1} color="hsl(var(--muted-foreground) / 0.18)" />
         <Controls showInteractive={false} position="bottom-right" />
       </ReactFlow>
+    </div>
       <Legend />
     </div>
   );
@@ -259,7 +268,7 @@ function Legend() {
     ["ok", "OK"],
   ];
   return (
-    <div className="pointer-events-none absolute left-3 top-3 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border bg-background/85 px-2.5 py-1.5 text-[10.5px] text-muted-foreground backdrop-blur">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t bg-card px-3 py-2 text-[11px] text-muted-foreground">
       {["Clients", "Servers", "Crypto", "Weaknesses"].map((c, i) => (
         <span key={c} className="font-medium text-foreground/80">
           {i > 0 && <span className="mr-3 text-muted-foreground">→</span>}

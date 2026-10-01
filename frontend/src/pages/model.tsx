@@ -1,6 +1,6 @@
 import { Fragment } from "react";
 
-import { Empty, ErrorState, Loading, Meter, PageHeader, Panel, Stat } from "@/components/common";
+import { Empty, ErrorState, Loading, Meter, PageHeader, Panel, StatStrip } from "@/components/common";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useFixCatalogue, useModelCard } from "@/lib/api";
 import { riskColor } from "@/lib/format";
@@ -23,19 +23,21 @@ export function ModelPage() {
     <div className="space-y-6">
       <PageHeader
         title="Risk model"
-        description="SecureMailScope's own session risk classifier — trained in-house, runs locally, no external AI service. It ranks and explains; every verdict still comes from a deterministic rule."
+        description="Session risk classifier used for prioritisation. Trained in-house and run locally; findings are determined by rules, not by this model."
       />
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-        <Stat label="Held-out accuracy" value={`${(ev.holdout_accuracy * 100).toFixed(1)}%`} sub={`${ev.holdout_rows} unseen sessions`} />
-        <Stat label="Held-out macro-F1" value={ev.holdout_macro_f1.toFixed(3)} />
-        <Stat label="5-fold CV macro-F1" value={ev.cv_macro_f1_mean.toFixed(3)} sub={`± ${ev.cv_macro_f1_std.toFixed(3)}`} />
-        <Stat label="Training sessions" value={card.training_rows} sub={`${card.features} features`} />
-        <Stat label="Model" value="GBDT" sub={card.algorithm?.replace(/\(.*\)/, "").trim()} />
-      </div>
+      <StatStrip
+        items={[
+          { label: "Held-out accuracy", value: `${(ev.holdout_accuracy * 100).toFixed(1)}%`, sub: `${ev.holdout_rows} unseen sessions` },
+          { label: "Held-out macro-F1", value: ev.holdout_macro_f1.toFixed(3) },
+          { label: "5-fold CV macro-F1", value: ev.cv_macro_f1_mean.toFixed(3), sub: `± ${ev.cv_macro_f1_std.toFixed(3)}` },
+          { label: "Training sessions", value: card.training_rows, sub: `${card.features} features` },
+          { label: "Algorithm", value: "Gradient boosting", sub: "250 trees · depth 3" },
+        ]}
+      />
 
       <div className="grid gap-4 xl:grid-cols-2">
-        <Panel title="Confusion matrix (held-out)" description="Rows are the true class, columns the prediction.">
+        <Panel title="Confusion matrix" info="Held-out evaluation set. Rows are the true class, columns the predicted class.">
           <div className="grid gap-1" style={{ gridTemplateColumns: `90px repeat(${cm.labels.length}, 1fr)` }}>
             <div />
             {cm.labels.map((l) => (
@@ -64,7 +66,7 @@ export function ModelPage() {
           </div>
         </Panel>
 
-        <Panel title="What the model relies on" description="Permutation importance on held-out data: the drop in macro-F1 when a feature is shuffled.">
+        <Panel title="Feature importance" info="Permutation importance on held-out data: the drop in macro-F1 when the feature is shuffled.">
           <div className="space-y-2">
             {importance.map((f) => (
               <div key={f.feature} className="flex items-center gap-3 text-xs">
@@ -130,7 +132,7 @@ export function ModelPage() {
       </div>
 
       {fixes.data && (
-        <Panel title="Remediation knowledge base" description="Playbooks the planner and simulator use — each written against the product's documented configuration syntax.">
+        <Panel title="Remediation playbooks" flush>
           <Table>
             <TableHeader>
               <TableRow>

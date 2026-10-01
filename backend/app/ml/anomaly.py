@@ -21,6 +21,8 @@ Three constraints kept deliberately:
 
 from __future__ import annotations
 
+from app.ml.runtime import native
+
 import logging
 from dataclasses import dataclass, field
 
@@ -74,7 +76,7 @@ class AnomalyReport:
         }
 
 
-def analyse(sessions: list[EmailSession]) -> AnomalyReport:
+def _analyse_impl(sessions: list[EmailSession]) -> AnomalyReport:
     usable = [s for s in sessions if not s.is_indeterminate and s.protocol]
 
     if len(usable) < MIN_SESSIONS_FOR_MODEL:
@@ -167,3 +169,8 @@ def analyse(sessions: list[EmailSession]) -> AnomalyReport:
         )
 
     return report
+
+
+def analyse(sessions: list[EmailSession]) -> AnomalyReport:
+    """Isolation Forest over session features (runs on the ML thread)."""
+    return native(_analyse_impl, sessions)

@@ -1,6 +1,12 @@
 import { QueryClient, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import type {
+  AskAnswer,
+  AssistantCard,
+  AttackPaths,
+  Brief,
+  FingerprintClusters,
+  QuantumForecast,
   CaptureDetail,
   CaptureList,
   DriftCompare,
@@ -11,6 +17,7 @@ import type {
   ModelCard,
   Overview,
   PostureResponse,
+  PqcReadiness,
   Priority,
   RemediationPlan,
   RiskResponse,
@@ -124,6 +131,38 @@ export const useGraph = (id?: string) =>
 export const useRisk = (id?: string) =>
   useQuery({ queryKey: ["risk", id], queryFn: () => api.get<RiskResponse>(`${base(id!)}/risk`), enabled: !!id });
 
+export const useBrief = (id?: string) =>
+  useQuery({ queryKey: ["brief", id], queryFn: () => api.get<Brief>(`${base(id!)}/ai/brief`), enabled: !!id });
+
+export const useAttackPaths = (id?: string) =>
+  useQuery({ queryKey: ["attack", id], queryFn: () => api.get<AttackPaths>(`${base(id!)}/ai/attack-paths`), enabled: !!id });
+
+export const useFingerprints = (id?: string) =>
+  useQuery({ queryKey: ["fingerprints", id], queryFn: () => api.get<FingerprintClusters>(`${base(id!)}/ai/fingerprints`), enabled: !!id });
+
+export const useQuantumForecast = (id: string | undefined, shelfLife: number) =>
+  useQuery({
+    queryKey: ["forecast", id, shelfLife],
+    queryFn: () => api.get<QuantumForecast>(`${base(id!)}/ai/quantum-forecast?shelf_life=${shelfLife}`),
+    enabled: !!id,
+    placeholderData: (prev) => prev,
+  });
+
+export const useAssistantCard = () =>
+  useQuery({ queryKey: ["assistant-card"], queryFn: () => api.get<AssistantCard>("/api/models/assistant") });
+
+export const askAnalyst = (id: string, question: string) => api.post<AskAnswer>(`${base(id)}/ai/ask`, { question });
+
+export const usePqc = (id?: string) =>
+  useQuery({ queryKey: ["pqc", id], queryFn: () => api.get<PqcReadiness>(`${base(id!)}/pqc`), enabled: !!id });
+
+export const useHealth = () =>
+  useQuery({
+    queryKey: ["health"],
+    queryFn: () => api.get<{ status: string; version: string }>("/api/health"),
+    refetchInterval: 30_000,
+  });
+
 export const useStarttls = (id?: string) =>
   useQuery({ queryKey: ["starttls", id], queryFn: () => api.get<StarttlsAnalytics>(`${base(id!)}/starttls`), enabled: !!id });
 
@@ -172,7 +211,7 @@ export function useAnalyze() {
     mutationFn: (id: string) => api.post(`${base(id)}/analyze`),
     onSuccess: (_d, id) => {
       qc.invalidateQueries({ queryKey: ["captures"] });
-      for (const key of ["capture", "overview", "posture", "findings", "priorities", "sessions", "graph", "risk", "starttls", "plan", "software"]) {
+      for (const key of ["capture", "overview", "posture", "findings", "priorities", "sessions", "graph", "risk", "starttls", "plan", "software", "pqc", "trace", "session", "brief", "attack", "fingerprints", "forecast"]) {
         qc.invalidateQueries({ queryKey: [key, id] });
       }
       qc.invalidateQueries({ queryKey: ["drift-timeline"] });

@@ -1,93 +1,112 @@
-import { AlertTriangle, Check, Copy, Inbox } from "lucide-react";
+import { AlertTriangle, Check, Copy, Info } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { riskColor, sevColor, stateLabel, stateTone, toneColor } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-// ---------------------------------------------------------------- badges
+// ---------------------------------------------------------------- status labels
+// Neutral outline with a coloured dot: colour carries the signal, not the fill.
 
-function Pill({ color, children, className, solid }: { color: string; children: ReactNode; className?: string; solid?: boolean }) {
+export function Dot({ color, className }: { color: string; className?: string }) {
+  return <span className={cn("inline-block size-2 shrink-0 rounded-full", className)} style={{ background: color }} />;
+}
+
+function Label({ color, children, className, mono }: { color: string; children: ReactNode; className?: string; mono?: boolean }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-[11px] font-medium leading-4",
+        "inline-flex h-6 items-center gap-1.5 whitespace-nowrap rounded-md border bg-background px-2 text-xs font-medium text-foreground/90",
+        mono && "font-mono",
         className,
       )}
-      style={
-        solid
-          ? { background: color, borderColor: color, color: "white" }
-          : { borderColor: `color-mix(in srgb, ${color} 35%, transparent)`, background: `color-mix(in srgb, ${color} 12%, transparent)`, color }
-      }
     >
+      <Dot color={color} className="size-1.5" />
       {children}
     </span>
   );
 }
 
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+
 export function SeverityBadge({ severity, className }: { severity: string; className?: string }) {
   return (
-    <Pill color={sevColor(severity)} className={cn("uppercase tracking-wide", className)}>
-      {severity.toLowerCase()}
-    </Pill>
+    <Label color={sevColor(severity)} className={className}>
+      {cap(severity)}
+    </Label>
   );
 }
 
 export function RiskBadge({ risk, score, className }: { risk: string | null | undefined; score?: number | null; className?: string }) {
   if (!risk) return <span className="text-xs text-muted-foreground">—</span>;
   return (
-    <Pill color={riskColor(risk)} className={className}>
-      <span className="size-1.5 rounded-full" style={{ background: riskColor(risk) }} />
-      {risk}
-      {score != null && <span className="tabular opacity-70">{Math.round(score)}</span>}
-    </Pill>
+    <Label color={riskColor(risk)} className={className}>
+      {cap(risk)}
+      {score != null && <span className="tabular text-muted-foreground">{Math.round(score)}</span>}
+    </Label>
   );
 }
 
 export function StateBadge({ state, className }: { state: string; className?: string }) {
-  const color = toneColor(stateTone(state));
   return (
-    <Pill color={color} className={className}>
-      <span className="size-1.5 rounded-full" style={{ background: color }} />
+    <Label color={toneColor(stateTone(state))} className={className}>
       {stateLabel(state)}
-    </Pill>
+    </Label>
   );
 }
 
 export function VerdictBadge({ verdict }: { verdict: string }) {
   const color = verdict === "FAIL" ? "hsl(var(--sev-critical))" : verdict === "PASS" ? "hsl(var(--sev-ok))" : "hsl(var(--sev-info))";
-  return <Pill color={color}>{verdict}</Pill>;
+  return <Label color={color}>{cap(verdict)}</Label>;
 }
 
-export function TierBadge({ tier }: { tier: string }) {
-  const color = { P1: "hsl(var(--sev-critical))", P2: "hsl(var(--sev-high))", P3: "hsl(var(--sev-medium))", P4: "hsl(var(--sev-info))" }[tier] ?? "hsl(var(--sev-info))";
+const TIER_COLOR: Record<string, string> = {
+  P1: "hsl(var(--sev-critical))",
+  P2: "hsl(var(--sev-high))",
+  P3: "hsl(var(--sev-medium))",
+  P4: "hsl(var(--sev-info))",
+};
+
+export function TierBadge({ tier, score }: { tier: string; score?: number }) {
   return (
-    <Pill color={color} solid className="font-semibold">
+    <Label color={TIER_COLOR[tier] ?? TIER_COLOR.P4} mono>
       {tier}
-    </Pill>
+      {score != null && <span className="tabular text-muted-foreground">{Math.round(score)}</span>}
+    </Label>
   );
 }
 
 export function Tag({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <span className={cn("inline-flex items-center rounded border bg-muted/50 px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground", className)}>
+    <span className={cn("inline-flex items-center rounded border bg-muted/40 px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground", className)}>
       {children}
     </span>
   );
 }
 
-// ---------------------------------------------------------------- layout helpers
+// ---------------------------------------------------------------- layout
 
-export function PageHeader({ title, description, actions, eyebrow }: { title: ReactNode; description?: ReactNode; actions?: ReactNode; eyebrow?: ReactNode }) {
+export function InfoTip({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button type="button" className={cn("inline-flex text-muted-foreground/70 hover:text-foreground", className)} aria-label="More information">
+          <Info className="size-3.5" />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent className="max-w-xs text-xs leading-relaxed">{children}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+export function PageHeader({ title, description, actions }: { title: ReactNode; description?: ReactNode; actions?: ReactNode }) {
   return (
     <div className="flex flex-wrap items-end justify-between gap-4">
       <div className="min-w-0 space-y-1">
-        {eyebrow && <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{eyebrow}</div>}
-        <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
-        {description && <p className="max-w-3xl text-sm text-muted-foreground">{description}</p>}
+        <h1 className="text-lg font-semibold tracking-tight">{title}</h1>
+        {description && <p className="text-sm text-muted-foreground">{description}</p>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
     </div>
@@ -96,71 +115,83 @@ export function PageHeader({ title, description, actions, eyebrow }: { title: Re
 
 export function Panel({
   title,
+  info,
   description,
   actions,
   children,
   className,
   contentClassName,
+  flush,
 }: {
   title?: ReactNode;
+  info?: ReactNode;
   description?: ReactNode;
   actions?: ReactNode;
   children: ReactNode;
   className?: string;
   contentClassName?: string;
+  flush?: boolean;
 }) {
   return (
-    <Card className={cn("shadow-none", className)}>
+    <section className={cn("rounded-lg border bg-card text-card-foreground", className)}>
       {(title || actions) && (
-        <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0 p-4 pb-3">
-          <div className="min-w-0 space-y-1">
-            {title && <CardTitle className="text-sm font-semibold">{title}</CardTitle>}
-            {description && <CardDescription className="text-xs">{description}</CardDescription>}
+        <header className="flex min-h-11 items-center justify-between gap-3 border-b px-4 py-2">
+          <div className="flex min-w-0 items-center gap-1.5">
+            {title && <h2 className="truncate text-sm font-medium">{title}</h2>}
+            {info && <InfoTip>{info}</InfoTip>}
+            {description && <span className="ml-1 truncate text-xs text-muted-foreground">{description}</span>}
           </div>
           {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
-        </CardHeader>
+        </header>
       )}
-      <CardContent className={cn("p-4 pt-0", !title && !actions && "pt-4", contentClassName)}>{children}</CardContent>
-    </Card>
+      <div className={cn(!flush && "p-4", contentClassName)}>{children}</div>
+    </section>
   );
 }
 
-export function Stat({
-  label,
-  value,
-  sub,
-  color,
-  icon,
-  className,
-}: {
+export interface StatItem {
   label: ReactNode;
   value: ReactNode;
   sub?: ReactNode;
-  color?: string;
-  icon?: ReactNode;
-  className?: string;
-}) {
+  info?: ReactNode;
+  accent?: string;
+}
+
+/** One bordered strip of metrics separated by dividers. */
+export function StatStrip({ items, className }: { items: StatItem[]; className?: string }) {
   return (
-    <Card className={cn("shadow-none", className)}>
-      <CardContent className="space-y-1.5 p-4">
-        <div className="flex items-center justify-between text-xs font-medium text-muted-foreground">
-          <span>{label}</span>
-          {icon && <span className="text-muted-foreground/70">{icon}</span>}
+    <div className={cn("grid overflow-hidden rounded-lg border bg-card", className)} style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}>
+      {items.map((s, i) => (
+        <div key={i} className={cn("min-w-0 px-4 py-3", i > 0 && "border-l")}>
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            {s.accent && <Dot color={s.accent} className="size-1.5" />}
+            <span className="truncate">{s.label}</span>
+            {s.info && <InfoTip>{s.info}</InfoTip>}
+          </div>
+          <div className="tabular mt-1 truncate text-xl font-semibold tracking-tight">{s.value}</div>
+          {s.sub && <div className="mt-0.5 truncate text-xs text-muted-foreground">{s.sub}</div>}
         </div>
-        <div className="tabular text-2xl font-semibold tracking-tight" style={color ? { color } : undefined}>
-          {value}
-        </div>
-        {sub && <div className="text-xs text-muted-foreground">{sub}</div>}
-      </CardContent>
-    </Card>
+      ))}
+    </div>
   );
 }
 
-export function KeyValue({ rows, className }: { rows: [ReactNode, ReactNode][]; className?: string }) {
+export function Stat({ label, value, sub, className }: { label: ReactNode; value: ReactNode; sub?: ReactNode; color?: string; icon?: ReactNode; className?: string }) {
   return (
-    <dl className={cn("grid grid-cols-[minmax(110px,auto)_1fr] gap-x-4 gap-y-2 text-sm", className)}>
+    <div className={cn("rounded-lg border bg-card px-4 py-3", className)}>
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="tabular mt-1 text-xl font-semibold tracking-tight">{value}</div>
+      {sub && <div className="mt-0.5 text-xs text-muted-foreground">{sub}</div>}
+    </div>
+  );
+}
+
+/** Vertical property list, as in an inspector panel. */
+export function Properties({ rows, className }: { rows: [ReactNode, ReactNode][]; className?: string }) {
+  return (
+    <dl className={cn("divide-y text-sm", className)}>
       {rows.map(([k, v], i) => (
-        <div key={i} className="contents">
+        <div key={i} className="grid grid-cols-[120px_1fr] gap-3 py-2 first:pt-0 last:pb-0">
           <dt className="text-muted-foreground">{k}</dt>
           <dd className="min-w-0 break-words">{v}</dd>
         </div>
@@ -169,6 +200,8 @@ export function KeyValue({ rows, className }: { rows: [ReactNode, ReactNode][]; 
   );
 }
 
+export const KeyValue = Properties;
+
 export function CopyButton({ text, className, label }: { text: string; className?: string; label?: string }) {
   const [done, setDone] = useState(false);
   return (
@@ -176,9 +209,9 @@ export function CopyButton({ text, className, label }: { text: string; className
       <TooltipTrigger asChild>
         <Button
           type="button"
-          variant="ghost"
+          variant={label ? "outline" : "ghost"}
           size={label ? "sm" : "icon"}
-          className={cn(label ? "h-7 gap-1.5 px-2 text-xs" : "size-7", className)}
+          className={cn(label ? "h-8 gap-1.5" : "size-7 text-muted-foreground", className)}
           onClick={(e) => {
             e.stopPropagation();
             navigator.clipboard?.writeText(text).then(() => {
@@ -191,7 +224,7 @@ export function CopyButton({ text, className, label }: { text: string; className
           {label}
         </Button>
       </TooltipTrigger>
-      <TooltipContent>{done ? "Copied" : "Copy"}</TooltipContent>
+      <TooltipContent>{done ? "Copied" : "Copy to clipboard"}</TooltipContent>
     </Tooltip>
   );
 }
@@ -200,7 +233,18 @@ export function CodeLine({ children, copy = true }: { children: string; copy?: b
   return (
     <div className="group flex items-start gap-2 rounded-md border bg-muted/40 px-3 py-2 font-mono text-xs">
       <code className="min-w-0 flex-1 whitespace-pre-wrap break-all">{children}</code>
-      {copy && <CopyButton text={children} className="-my-1 -mr-1.5 opacity-60 group-hover:opacity-100" />}
+      {copy && <CopyButton text={children} className="-my-1 -mr-1.5 size-6" />}
+    </div>
+  );
+}
+
+export function Meter({ value, color, className }: { value: number | null | undefined; color?: string; className?: string }) {
+  return (
+    <div className={cn("h-1.5 w-full overflow-hidden rounded-full bg-muted", className)}>
+      <div
+        className="h-full rounded-full transition-[width] duration-500 ease-out"
+        style={{ width: `${Math.max(0, Math.min(100, value ?? 0))}%`, background: color ?? "hsl(var(--primary))" }}
+      />
     </div>
   );
 }
@@ -229,23 +273,12 @@ export function ErrorState({ error }: { error: unknown }) {
   );
 }
 
-export function Empty({ title, children, icon }: { title: string; children?: ReactNode; icon?: ReactNode }) {
+export function Empty({ title, children, icon, className }: { title: string; children?: ReactNode; icon?: ReactNode; className?: string }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed px-6 py-10 text-center">
-      <div className="text-muted-foreground">{icon ?? <Inbox className="size-6" />}</div>
+    <div className={cn("flex flex-col items-center justify-center gap-2 px-6 py-10 text-center", className)}>
+      {icon && <div className="text-muted-foreground">{icon}</div>}
       <div className="text-sm font-medium">{title}</div>
       {children && <div className="max-w-md text-sm text-muted-foreground">{children}</div>}
-    </div>
-  );
-}
-
-export function Meter({ value, color, className }: { value: number | null | undefined; color?: string; className?: string }) {
-  return (
-    <div className={cn("h-1.5 w-full overflow-hidden rounded-full bg-muted", className)}>
-      <div
-        className="h-full rounded-full transition-[width] duration-700 ease-out"
-        style={{ width: `${Math.max(0, Math.min(100, value ?? 0))}%`, background: color ?? "hsl(var(--primary))" }}
-      />
     </div>
   );
 }

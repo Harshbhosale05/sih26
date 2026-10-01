@@ -19,6 +19,8 @@ risk above the session's own healthy baseline. No black box.
 
 from __future__ import annotations
 
+from app.ml.runtime import native
+
 import json
 import logging
 from dataclasses import dataclass, field
@@ -149,7 +151,7 @@ def _groups(x: list[float]) -> list[dict]:
     return groups
 
 
-def classify(sessions: list[EmailSession]) -> dict[str, RiskResult]:
+def _classify_impl(sessions: list[EmailSession]) -> dict[str, RiskResult]:
     """Risk class, score and Shapley-attributed drivers for each session.
 
     Drivers are exact Shapley values over the applicable risk-factor groups
@@ -227,6 +229,11 @@ def classify(sessions: list[EmailSession]) -> dict[str, RiskResult]:
             baseline=round(baseline, 2),
         )
     return results
+
+
+def classify(sessions: list[EmailSession]) -> dict[str, RiskResult]:
+    """Risk class, score and drivers per session (runs on the ML thread)."""
+    return native(_classify_impl, sessions)
 
 
 def apply(sessions: list[EmailSession]) -> dict[str, RiskResult]:

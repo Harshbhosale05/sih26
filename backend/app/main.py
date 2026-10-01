@@ -1,4 +1,6 @@
+import faulthandler
 import logging
+import signal
 import shutil
 from pathlib import Path
 from contextlib import asynccontextmanager
@@ -9,6 +11,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__
 from app.api import (
+    ai_model_router,
+    ai_router,
     analytics_router,
     captures_router,
     drift_router,
@@ -29,6 +33,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# `kill -USR1 <pid>` dumps every thread's stack to stderr (diagnosing hangs).
+faulthandler.register(signal.SIGUSR1, all_threads=True)
+faulthandler.enable(all_threads=True)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -41,6 +49,10 @@ async def lifespan(app: FastAPI):
     from app.ml import risk as ml_risk
 
     logger.info("risk model: %s", "loaded" if ml_risk.available() else "not trained")
+    from app.ai import assistant
+
+    _, card = assistant.model()
+    logger.info("assistant intent model: %s examples, CV accuracy %.3f", card["training_examples"], card["cv_accuracy"])
     settings = get_settings()
     logger.info("SecureMailScope API %s", __version__)
     logger.info("data dir: %s", settings.data_dir)
@@ -77,6 +89,8 @@ app.include_router(analytics_router)
 app.include_router(drift_router)
 app.include_router(remediation_router)
 app.include_router(model_router)
+app.include_router(ai_router)
+app.include_router(ai_model_router)
 
 
 @app.get("/api/health", tags=["system"])

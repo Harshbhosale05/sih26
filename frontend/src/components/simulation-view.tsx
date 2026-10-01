@@ -18,10 +18,10 @@ function Delta({ label, before, after, lowerIsBetter, suffix = "" }: { label: st
   const better = lowerIsBetter ? a < b : a > b;
   const worse = lowerIsBetter ? a > b : a < b;
   return (
-    <div className="rounded-lg border p-3">
+    <div className="rounded-md border bg-card px-3 py-2.5">
       <div className="text-xs text-muted-foreground">{label}</div>
       <div className="tabular mt-1 flex items-baseline gap-2">
-        <span className="text-lg font-semibold text-muted-foreground">
+        <span className="text-base font-medium text-muted-foreground">
           {before ?? "—"}
           {suffix}
         </span>
@@ -30,7 +30,7 @@ function Delta({ label, before, after, lowerIsBetter, suffix = "" }: { label: st
           key={String(after)}
           initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-lg font-semibold"
+          className="text-base font-semibold"
           style={{ color: better ? "hsl(var(--sev-ok))" : worse ? "hsl(var(--sev-critical))" : undefined }}
         >
           {after ?? "—"}
@@ -45,40 +45,61 @@ export function SimulationView({ sim, captureId, compactGraph }: { sim: Simulati
   const [view, setView] = useState<"after" | "before" | "compare">("compare");
   const pb = sim.posture.before;
   const pa = sim.posture.after;
+  const pqcLead = pb.overall === pa.overall && sim.pqc.before.score !== sim.pqc.after.score;
   const rb = sim.risk.before?.index;
   const ra = sim.risk.after?.index;
 
   return (
     <div className="space-y-4">
-      <div className="flex items-start gap-2 rounded-lg border border-primary/30 bg-primary/5 p-3 text-xs text-muted-foreground">
-        <FlaskConical className="mt-0.5 size-3.5 shrink-0 text-primary" />
-        <span>
-          <b className="text-foreground">Projection.</b> {sim.note}
-        </span>
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <FlaskConical className="size-3.5 shrink-0" />
+        Projected by re-evaluating the captured sessions with the selected changes applied. Confirm with the verification steps and a new capture.
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[260px_1fr]">
-        <div className="flex flex-col items-center justify-center rounded-lg border p-4">
-          <ScoreGauge score={pa.overall} ghost={pb.overall} size={200} label="projected posture" />
-          <div className="mt-2 text-xs text-muted-foreground">
-            from <b style={{ color: scoreColor(pb.overall) }}>{pb.overall ?? "—"}</b> today
-          </div>
+        <div className="flex flex-col items-center justify-center rounded-lg border bg-card p-4">
+          {pqcLead ? (
+            <>
+              <ScoreGauge score={sim.pqc.after.score} ghost={sim.pqc.before.score} size={200} label={`PQC readiness · ${sim.pqc.after.level_label ?? ""}`} />
+              <div className="mt-2 text-xs text-muted-foreground">
+                from <b style={{ color: scoreColor(sim.pqc.before.score) }}>{sim.pqc.before.score ?? "—"}</b> ({sim.pqc.before.level_label}) today
+              </div>
+            </>
+          ) : (
+            <>
+              <ScoreGauge score={pa.overall} ghost={pb.overall} size={200} label="Projected posture" />
+              <div className="mt-2 text-xs text-muted-foreground">
+                from <b style={{ color: scoreColor(pb.overall) }}>{pb.overall ?? "—"}</b> today
+              </div>
+            </>
+          )}
         </div>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+          {pqcLead && (
+            <>
+              <Delta label="PQC readiness" before={sim.pqc.before.score} after={sim.pqc.after.score} />
+              <Delta label="Hybrid PQC sessions" before={sim.state.before.pqc_selected} after={sim.state.after.pqc_selected} />
+              <Delta label="Harvest-now-decrypt-later exposed" before={sim.pqc.before.hndl_exposed_pct} after={sim.pqc.after.hndl_exposed_pct} lowerIsBetter suffix="%" />
+            </>
+          )}
           <Delta label="Posture score" before={pb.overall} after={pa.overall} />
           <Delta label="Failing findings" before={sim.findings.before} after={sim.findings.after} lowerIsBetter />
           <Delta label="Risk index (model)" before={rb != null ? Math.round(rb) : null} after={ra != null ? Math.round(ra) : null} lowerIsBetter />
           <Delta label="Cleartext sessions" before={sim.state.before.cleartext} after={sim.state.after.cleartext} lowerIsBetter />
           <Delta label="Credentials exposed" before={sim.state.before.credentials_exposed} after={sim.state.after.credentials_exposed} lowerIsBetter />
           <Delta label="Protected sessions" before={sim.state.before.protected} after={sim.state.after.protected} />
-          <Delta label="PQC readiness" before={sim.pqc.before.score} after={sim.pqc.after.score} />
-          <Delta label="Hybrid PQC sessions" before={sim.state.before.pqc_selected} after={sim.state.after.pqc_selected} />
-          <Delta label="Harvest-now-decrypt-later exposed" before={sim.pqc.before.hndl_exposed_pct} after={sim.pqc.after.hndl_exposed_pct} lowerIsBetter suffix="%" />
+          {!pqcLead && (
+            <>
+              <Delta label="PQC readiness" before={sim.pqc.before.score} after={sim.pqc.after.score} />
+              <Delta label="Hybrid PQC sessions" before={sim.state.before.pqc_selected} after={sim.state.after.pqc_selected} />
+              <Delta label="Harvest-now-decrypt-later exposed" before={sim.pqc.before.hndl_exposed_pct} after={sim.pqc.after.hndl_exposed_pct} lowerIsBetter suffix="%" />
+            </>
+          )}
         </div>
       </div>
 
       {(sim.pqc.before.score !== sim.pqc.after.score || sim.state.before.pqc_selected !== sim.state.after.pqc_selected) && (
-        <Panel title="Post-quantum exposure after the fix" description="Share of sessions in each harvest-now-decrypt-later tier, today and projected.">
+        <Panel title="Post-quantum exposure" info="Share of sessions in each harvest-now, decrypt-later tier. Upper bar: current. Lower bar: projected.">
           <div className="space-y-3">
             {sim.pqc.before.exposure.map((t) => {
               const after = sim.pqc.after.exposure.find((x) => x.tier === t.tier);
@@ -96,15 +117,14 @@ export function SimulationView({ sim, captureId, compactGraph }: { sim: Simulati
                 </div>
               );
             })}
-            <div className="text-[11px] text-muted-foreground">Faded bar: today. Solid bar: projected after the selected fixes.</div>
           </div>
         </Panel>
       )}
 
       {sim.graph && (
         <Panel
-          title="Infrastructure after the fix"
-          description="Same layout before and after: resolved weaknesses are struck through, nodes whose risk dropped are marked."
+          title="Infrastructure"
+          info="Same layout before and after. Resolved weaknesses are struck through; nodes whose risk changed are labelled."
           actions={
             <ToggleGroup type="single" value={view} onValueChange={(v) => v && setView(v as typeof view)} variant="outline" size="sm">
               <ToggleGroupItem value="before" className="h-7 px-2.5 text-xs">
@@ -132,10 +152,10 @@ export function SimulationView({ sim, captureId, compactGraph }: { sim: Simulati
       )}
 
       <div className="grid gap-4 xl:grid-cols-2">
-        <Panel title="Posture by dimension" description="Today (solid) and projected (faded) per dimension.">
+        <Panel title="Posture by dimension" info="Solid bar: current score. Faded bar: projected score.">
           <PostureDimensions dimensions={pb.dimensions} after={pa.dimensions} />
         </Panel>
-        <Panel title="Findings" description={`${sim.findings.resolved.length} resolved · ${sim.findings.remaining.length} remain · ${sim.findings.introduced.length} new`}>
+        <Panel title="Findings" description={`${sim.findings.resolved.length} resolved · ${sim.findings.remaining.length} remaining · ${sim.findings.introduced.length} new`}>
           <div className="max-h-[320px] space-y-1 overflow-y-auto pr-1">
             {sim.findings.resolved.map((f, i) => (
               <FindingLine key={`r${i}`} f={f} status="resolved" captureId={captureId} />
@@ -154,7 +174,7 @@ export function SimulationView({ sim, captureId, compactGraph }: { sim: Simulati
       </div>
 
       {sim.sessions_changed.length > 0 && (
-        <Panel title="Sessions that change" description="Each session re-evaluated as it would have looked with the fix in place.">
+        <Panel title="Affected sessions" info="Each session re-evaluated as it would have been negotiated with the selected changes in place.">
           <div className="max-h-[360px] overflow-auto">
             <Table>
               <TableHeader>

@@ -1,7 +1,7 @@
 import { ArrowRight, FileCode2, Loader2, RotateCcw, Sparkles, Telescope } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Bar, CartesianGrid, ComposedChart, Line, ReferenceLine, XAxis, YAxis } from "recharts";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 
 import { Empty, ErrorState, Loading, PageHeader, Panel, SeverityBadge } from "@/components/common";
 import { PlaybookView } from "@/components/config-diff";
@@ -63,7 +63,7 @@ function StepCard({ step, checked, onToggle, onOpen }: { step: PlanStep; checked
             </span>
           </div>
           <Button variant="ghost" size="sm" className="-ml-2 h-7 text-xs" onClick={onOpen}>
-            <FileCode2 className="size-3.5" /> Config for {step.playbook.software.name ?? "this server"}
+            <FileCode2 className="size-3.5" /> Configuration · {step.playbook.software.name ?? "generic"}
           </Button>
         </div>
       </div>
@@ -74,12 +74,16 @@ function StepCard({ step, checked, onToggle, onOpen }: { step: PlanStep; checked
 export function RemediationPage() {
   const { captureId } = useParams();
   const plan = usePlan(captureId);
+  const [params] = useSearchParams();
+  const preset = params.get("fix");
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [open, setOpen] = useState<PlanStep | null>(null);
 
   useEffect(() => {
-    if (plan.data) setSelected(new Set(plan.data.steps.map((s) => s.step)));
-  }, [plan.data]);
+    if (!plan.data) return;
+    const only = preset ? plan.data.steps.filter((s) => s.fix_id === preset) : [];
+    setSelected(new Set((only.length ? only : plan.data.steps).map((s) => s.step)));
+  }, [plan.data, preset]);
 
   const fixes = useMemo(
     () =>
@@ -109,15 +113,15 @@ export function RemediationPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Fix simulator"
-        description="An ordered remediation plan written for the server software we identified, and a digital twin of this capture that shows what a re-capture would look like with the chosen fixes in place — posture, findings, sessions and the infrastructure map."
+        title="Remediation"
+        description="Changes ordered by expected improvement per unit of effort. Select changes to project their effect on this capture."
         actions={
           <>
             <Button variant="outline" size="sm" onClick={() => setSelected(new Set())}>
-              <RotateCcw className="size-3.5" /> Clear
+              <RotateCcw className="size-3.5" /> Clear selection
             </Button>
             <Button size="sm" onClick={() => setSelected(new Set(p.steps.map((s) => s.step)))}>
-              <Sparkles className="size-3.5" /> Apply full plan
+              <Sparkles className="size-3.5" /> Select all
             </Button>
           </>
         }
@@ -128,7 +132,7 @@ export function RemediationPage() {
       ) : (
         <div className="grid gap-6 xl:grid-cols-[420px_1fr]">
           <div className="space-y-4">
-            <Panel title="Plan" description={p.method}>
+            <Panel title="Plan" info={p.method}>
               <div className="space-y-2">
                 {p.steps.map((s) => (
                   <StepCard key={s.step} step={s} checked={selected.has(s.step)} onToggle={() => toggle(s.step)} onOpen={() => setOpen(s)} />
@@ -136,7 +140,7 @@ export function RemediationPage() {
               </div>
             </Panel>
             {p.evidence_gaps.length > 0 && (
-              <Panel title="Evidence gaps" description="Not faults — things a better capture would let us assess.">
+              <Panel title="Evidence gaps" info="Not faults of the systems assessed: items a more complete capture would allow to be evaluated.">
                 <div className="space-y-2">
                   {p.evidence_gaps.map((g) => (
                     <div key={g.category} className="flex gap-2 text-xs">
@@ -156,8 +160,8 @@ export function RemediationPage() {
 
           <div className="min-w-0 space-y-4">
             <Panel
-              title="Posture trajectory"
-              description="Projected score and failing findings after each step of the plan, in order. Click a step to apply the plan up to it."
+              title="Projected trajectory"
+              info="Projected posture score (line) and failing findings (bars) after each step, applied in order. Select a point to apply the plan up to that step."
             >
               <ChartContainer config={chartConfig} className="h-[220px] w-full">
                 <ComposedChart
@@ -183,8 +187,7 @@ export function RemediationPage() {
             <div className="flex items-center gap-2 text-sm">
               {sim.isFetching && <Loader2 className="size-4 animate-spin text-primary" />}
               <span className="text-muted-foreground">
-                Simulating <b className="text-foreground">{fixes.length}</b> fix{fixes.length === 1 ? "" : "es"}
-                {fixes.length ? ":" : " — select steps to project their effect."}
+                {fixes.length ? <>Projecting <b className="text-foreground">{fixes.length}</b> change{fixes.length === 1 ? "" : "s"}:</> : "Select one or more changes to project their effect."}
               </span>
               <span className="flex flex-wrap gap-1">
                 {p.steps

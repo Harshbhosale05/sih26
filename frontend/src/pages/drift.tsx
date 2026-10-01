@@ -1,8 +1,8 @@
-import { ArrowRight, TrendingDown, TrendingUp } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { useEffect, useState } from "react";
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
 
-import { Empty, ErrorState, Loading, PageHeader, Panel, SeverityBadge, Stat } from "@/components/common";
+import { Empty, ErrorState, Loading, PageHeader, Panel, SeverityBadge, StatStrip } from "@/components/common";
 import { ChartContainer, ChartLegend, ChartLegendContent, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -44,9 +44,9 @@ export function DriftPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Cryptographic drift" description="How the posture of the same infrastructure changes between captures: which servers regressed, which primitives changed, which findings appeared or cleared." />
+      <PageHeader title="Drift" description="Changes in cryptographic posture between captures of the same infrastructure." />
 
-      <Panel title="Across all analysed captures" description="Ordered by capture time.">
+      <Panel title="All captures" info="Ordered by capture time.">
         <ChartContainer config={chartConfig} className="h-[240px] w-full">
           <LineChart data={data} margin={{ left: 0, right: 12, top: 8 }}>
             <CartesianGrid vertical={false} />
@@ -62,7 +62,7 @@ export function DriftPage() {
       </Panel>
 
       <Panel
-        title="Compare two captures"
+        title="Comparison"
         actions={
           <div className="flex items-center gap-2">
             {[baseline, current].map((v, i) => (
@@ -91,12 +91,14 @@ export function DriftPage() {
           <Loading rows={2} />
         ) : (
           <div className="space-y-5">
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-              <Stat label="Verdict" value={c.summary.verdict} color={DIR_COLOR[c.summary.verdict] ?? undefined} />
-              <Stat label="Regressions" value={c.summary.regressions} color={c.summary.regressions ? DIR_COLOR.regressed : undefined} icon={<TrendingDown className="size-4" />} />
-              <Stat label="Improvements" value={c.summary.improvements} color={c.summary.improvements ? DIR_COLOR.improved : undefined} icon={<TrendingUp className="size-4" />} />
-              <Stat label="Servers compared" value={c.summary.servers_compared} sub={`${c.summary.servers_added} added · ${c.summary.servers_removed} removed`} />
-            </div>
+            <StatStrip
+              items={[
+                { label: "Verdict", value: c.summary.verdict.charAt(0).toUpperCase() + c.summary.verdict.slice(1), accent: DIR_COLOR[c.summary.verdict] },
+                { label: "Regressions", value: c.summary.regressions, accent: c.summary.regressions ? DIR_COLOR.regressed : undefined },
+                { label: "Improvements", value: c.summary.improvements, accent: c.summary.improvements ? DIR_COLOR.improved : undefined },
+                { label: "Servers compared", value: c.summary.servers_compared, sub: `${c.summary.servers_added} added · ${c.summary.servers_removed} removed` },
+              ]}
+            />
 
             <div className="grid gap-4 xl:grid-cols-2">
               <Table>

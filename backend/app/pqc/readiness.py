@@ -204,13 +204,44 @@ def assess(sessions: list[EmailSession]) -> dict:
         "hndl_exposed_pct": round(100 * hndl / len(email), 1) if email else None,
         "servers": servers,
         "actions": actions,
+        "groups": _groups(sessions),
+        "tls_versions": dict(Counter(s.tls_version for s in sessions if s.tls_version)),
         "framing": (
-            "A migration-readiness measure, not a threat assessment. It says how much "
+            "A migration-readiness measure, not a threat assessment. It reports how much "
             "observed traffic already uses quantum-resistant key exchange and what "
-            "stands in the way — it does not claim a quantum-capable attacker exists."
+            "prevents the remainder from doing so."
         ),
         "standards": ["FIPS 203 (ML-KEM)", "CNSA 2.0", "NIST IR 8547", "RFC 8446"],
     }
+
+
+def _groups(sessions: list[EmailSession]) -> list[dict]:
+    """Key-exchange groups: how often clients offered each, how often servers chose it."""
+    from app.tls.groups import PQC_HYBRID_GROUPS, name as group_name
+
+    pqc_names = {group_name(g) for g in PQC_HYBRID_GROUPS}
+    offered: Counter = Counter()
+    selected: Counter = Counter()
+    for s in sessions:
+        detail = s.tls_detail or {}
+        for g in set(detail.get("groups_offered") or []):
+            offered[g] += 1
+        if s.tls_selected_group:
+            selected[s.tls_selected_group] += 1
+    total = sum(1 for s in sessions if s.tls_version) or 1
+    rows = [
+        {
+            "group": g,
+            "pqc": g in pqc_names or "mlkem" in g.lower() or "kyber" in g.lower(),
+            "offered": offered[g],
+            "offered_pct": round(100 * offered[g] / total, 1),
+            "selected": selected[g],
+            "selected_pct": round(100 * selected[g] / total, 1),
+        }
+        for g in set(offered) | set(selected)
+    ]
+    rows.sort(key=lambda r: (not r["pqc"], -r["selected"], -r["offered"], r["group"]))
+    return rows
 
 
 def _actions(values: dict, tiers: Counter, servers: list[dict]) -> list[dict]:

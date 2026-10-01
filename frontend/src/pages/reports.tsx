@@ -10,25 +10,25 @@ const EXPORTS = [
     kind: "report.pdf" as const,
     icon: FileType2,
     title: "Forensic report · PDF",
-    body: "Formal assessment for the record: executive summary, evidence manifest, posture calculation, every finding with its frames and Wireshark filter, prioritisation, our model's risk classification and the remediation plan. Rendered server-side from the HTML report.",
+    body: "Formal assessment report with document control, methodology, chain of custody, detailed findings and remediation plan.",
   },
   {
     kind: "report.html" as const,
     icon: FileText,
     title: "Forensic report · HTML",
-    body: "The same report as a self-contained page — no external assets, safe to email and open offline.",
+    body: "The same report as a self-contained web page that opens offline.",
   },
   {
     kind: "report.json" as const,
     icon: Braces,
     title: "Machine-readable · JSON",
-    body: "The full payload behind both reports: sessions, findings with evidence chains, posture terms, risk results, priorities and the plan. For SIEM ingestion and scripting.",
+    body: "Sessions, findings with evidence references, scores, priorities and the remediation plan, for SIEM ingestion.",
   },
   {
     kind: "cbom" as const,
     icon: Network,
     title: "Cryptographic bill of materials · CycloneDX",
-    body: "CycloneDX 1.6 CBOM of every algorithm, protocol and certificate observed — the inventory for post-quantum migration planning.",
+    body: "CycloneDX 1.6 inventory of observed algorithms, protocols and certificates, for post-quantum migration planning.",
   },
 ];
 
@@ -39,8 +39,8 @@ export function ReportsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Reports & exports"
-        description={`Every export is generated from one payload, so JSON, HTML and PDF can never disagree. Each carries the capture's SHA-256${capture ? ` (${capture.sha256.slice(0, 16)}…)` : ""} as its chain-of-custody anchor.`}
+        title="Report"
+        description={`All exports are generated from the same assessment data and reference evidence SHA-256 ${capture ? capture.sha256.slice(0, 16) + "…" : ""}`}
       />
       <div className="grid gap-4 md:grid-cols-2">
         {EXPORTS.map((e) => (
@@ -71,8 +71,8 @@ export function ReportsPage() {
           </Panel>
         ))}
       </div>
-      <Panel title="Preview" description="The HTML report, exactly as exported.">
-        <iframe title="Report preview" src={exportUrl(captureId!, "report.html")} className="h-[760px] w-full rounded-md border bg-white" />
+      <Panel title="Preview" flush>
+        <iframe title="Report preview" src={exportUrl(captureId!, "report.html")} className="h-[820px] w-full bg-[#e5e7eb]" />
       </Panel>
     </div>
   );

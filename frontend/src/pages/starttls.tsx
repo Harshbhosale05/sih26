@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { Link, useParams } from "react-router-dom";
 
-import { ErrorState, Loading, Meter, PageHeader, Panel, Stat } from "@/components/common";
+import { ErrorState, Loading, Meter, PageHeader, Panel, StatStrip } from "@/components/common";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useStarttls } from "@/lib/api";
 import { fmtPct, riskColor } from "@/lib/format";
@@ -19,18 +19,20 @@ export function StarttlsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="STARTTLS upgrade analysis" description={data.method} />
+      <PageHeader title="STARTTLS" description="How plaintext sessions were upgraded to TLS, where upgrades failed and who owns the fix." />
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-        <Stat label="Adoption" value={fmtPct(s.adoption_pct, 1)} sub={`${s.upgraded} of ${s.observable} observable upgraded`} />
-        <Stat label="Implicit TLS" value={s.implicit_tls} sub="no plaintext phase (RFC 8314)" />
-        <Stat label="Cleartext fallbacks" value={s.cleartext_fallbacks} color={s.cleartext_fallbacks ? "hsl(var(--sev-critical))" : undefined} />
-        <Stat label="Stripped" value={s.stripped} color={s.stripped ? "hsl(var(--sev-critical))" : undefined} sub="capability altered in transit" />
-        <Stat label="Unobservable" value={s.unobservable} sub="capture cannot tell" />
-      </div>
+      <StatStrip
+        items={[
+          { label: "Adoption", value: fmtPct(s.adoption_pct, 1), sub: `${s.upgraded} of ${s.observable} upgraded`, info: data.method },
+          { label: "Implicit TLS", value: s.implicit_tls, sub: "No plaintext phase (RFC 8314)" },
+          { label: "Cleartext fallbacks", value: s.cleartext_fallbacks, accent: s.cleartext_fallbacks ? "hsl(var(--sev-critical))" : undefined },
+          { label: "Capability stripped", value: s.stripped, accent: s.stripped ? "hsl(var(--sev-critical))" : undefined, sub: "Altered in transit" },
+          { label: "Undetermined", value: s.unobservable, sub: "Not visible in capture" },
+        ]}
+      />
 
       <div className="grid gap-4 xl:grid-cols-2">
-        <Panel title="Upgrade funnel" description="Plaintext-start sessions, stage by stage.">
+        <Panel title="Upgrade stages">
           <div className="space-y-3">
             {data.funnel.map((f, i) => (
               <div key={f.stage} className="space-y-1">
@@ -41,10 +43,10 @@ export function StarttlsPage() {
                     {f.drop_from_previous > 0 && <span className="ml-2 text-sev-high">−{f.drop_from_previous}</span>}
                   </span>
                 </div>
-                <div className="h-7 overflow-hidden rounded-md bg-muted">
+                <div className="h-5 overflow-hidden rounded bg-muted">
                   <motion.div
                     className="h-full rounded-md"
-                    style={{ background: `hsl(var(--primary) / ${1 - i * 0.14})` }}
+                    style={{ background: `hsl(var(--foreground) / ${0.75 - i * 0.09})` }}
                     initial={{ width: 0 }}
                     animate={{ width: `${(100 * f.count) / start}%` }}
                     transition={{ duration: 0.6, delay: i * 0.08 }}
@@ -55,7 +57,7 @@ export function StarttlsPage() {
           </div>
         </Panel>
 
-        <Panel title="Where upgrades stop — and who owns the fix">
+        <Panel title="Outcomes">
           <div className="space-y-2">
             {data.failure_points.map((f) => (
               <div key={f.key} className="rounded-lg border p-3">
@@ -83,7 +85,7 @@ export function StarttlsPage() {
         </Panel>
       </div>
 
-      <Panel title="Per server">
+      <Panel title="Servers" flush>
         <Table>
           <TableHeader>
             <TableRow>
